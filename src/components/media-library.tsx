@@ -18,9 +18,10 @@ import {
   type MediaCard,
 } from "@/lib/media-catalog";
 import { publishMinutesLock } from "@/lib/minutes-session";
+import { CoverOptimizeError, optimizeCoverImage } from "@/lib/optimize-cover";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 
 type LibraryPayload = {
   version?: number;
@@ -210,9 +211,12 @@ function CollectionFields({
         <input
           name="cover"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
           className="mt-2 block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:tracking-[0.14em] file:text-white file:uppercase"
         />
+        <span className="mt-2 block text-xs leading-5 text-zinc-500">
+          Large photos are resized before upload. The original stays on your device.
+        </span>
       </label>
       {initial?.coverUrl ? (
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -245,6 +249,8 @@ export function MediaLibrary({
   const [adding, setAdding] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [savePhase, setSavePhase] = useState<"preparing" | "saving" | null>(null);
+  const savingRef = useRef(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [libraryUnavailable, setLibraryUnavailable] = useState(unavailable);
@@ -302,38 +308,57 @@ export function MediaLibrary({
     return applyPayload(data, response);
   }
 
-  async function onCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitCollection(form: HTMLFormElement, editingId: string | null) {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setPending(true);
     setError("");
-    const body = new FormData(event.currentTarget);
-    body.set("version", String(version));
     try {
-      const response = await fetch("/api/media", { method: "POST", body });
-      if (await readPayload(response)) setAdding(false);
+      const body = new FormData(form);
+      const cover = body.get("cover");
+      if (cover instanceof File && cover.size > 0) {
+        setSavePhase("preparing");
+        try {
+          const optimized = await optimizeCoverImage(cover);
+          body.set("cover", optimized);
+        } catch (caught) {
+          setError(
+            caught instanceof CoverOptimizeError
+              ? caught.message
+              : "This photo could not be prepared for upload.",
+          );
+          return;
+        }
+      }
+      setSavePhase("saving");
+      body.set("version", String(version));
+      if (editingId) body.set("id", editingId);
+      const response = await fetch("/api/media", {
+        method: editingId ? "PATCH" : "POST",
+        body,
+      });
+      if (await readPayload(response)) {
+        if (editingId) setEditing(null);
+        else setAdding(false);
+      }
     } catch {
       setError("Could not save the library.");
     } finally {
+      savingRef.current = false;
       setPending(false);
+      setSavePhase(null);
     }
+  }
+
+  async function onCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitCollection(event.currentTarget, null);
   }
 
   async function onEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing) return;
-    setPending(true);
-    setError("");
-    const body = new FormData(event.currentTarget);
-    body.set("version", String(version));
-    body.set("id", editing.id);
-    try {
-      const response = await fetch("/api/media", { method: "PATCH", body });
-      if (await readPayload(response)) setEditing(null);
-    } catch {
-      setError("Could not save the library.");
-    } finally {
-      setPending(false);
-    }
+    await submitCollection(event.currentTarget, editing.id);
   }
 
   async function onDelete() {
@@ -596,6 +621,7 @@ export function MediaLibrary({
           <form
             key={editing?.id ?? "new"}
             onSubmit={editing ? onEdit : onCreate}
+            aria-busy={pending}
             className="grid gap-4"
           >
             <CollectionFields
@@ -613,12 +639,21 @@ export function MediaLibrary({
                 ) : null}
               </p>
             ) : null}
+            {savePhase ? (
+              <p role="status" className="text-sm text-zinc-300">
+                {savePhase === "preparing" ? "Preparing photo…" : "Saving collection…"}
+              </p>
+            ) : null}
             <button
               type="submit"
               disabled={pending}
               className={cn(buttonVariants(), "h-10 px-4 uppercase")}
             >
-              {pending ? "Saving…" : "Save collection"}
+              {savePhase === "preparing"
+                ? "Preparing photo…"
+                : pending
+                  ? "Saving…"
+                  : "Save collection"}
             </button>
           </form>
         </DialogContent>
