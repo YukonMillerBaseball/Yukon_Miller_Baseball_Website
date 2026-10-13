@@ -23,9 +23,17 @@ export function isListedMediaSeason(season: string) {
   return MEDIA_SEASONS.includes(season);
 }
 
-export function mediaSeasonChoices(current?: string | null) {
-  if (current && !isListedMediaSeason(current)) return [current, ...MEDIA_SEASONS];
-  return MEDIA_SEASONS;
+export function selectedMediaSeason(current?: string | null, now = new Date()) {
+  if (current && isListedMediaSeason(current)) return current;
+  const year = current?.match(/\d{4}/)?.[0];
+  if (year) {
+    const start = Number(year);
+    const forward = `${start}-${start + 1}`;
+    if (isListedMediaSeason(forward)) return forward;
+    const previous = `${start - 1}-${start}`;
+    if (isListedMediaSeason(previous)) return previous;
+  }
+  return defaultMediaSeason(now);
 }
 
 export function defaultMediaSeason(now = new Date()) {

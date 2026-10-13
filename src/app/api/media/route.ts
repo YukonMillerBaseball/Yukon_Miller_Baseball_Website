@@ -201,11 +201,7 @@ export async function PATCH(request: Request) {
       { status: 503 },
     );
   }
-  const current = read.catalog.items.find((item) => item.id === id);
-  if (
-    !isListedMediaSeason(parsed.input.season) &&
-    parsed.input.season !== current?.season
-  ) {
+  if (!isListedMediaSeason(parsed.input.season)) {
     return NextResponse.json({ error: "Choose a season." }, { status: 400 });
   }
 

@@ -11,12 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  MEDIA_SEASONS,
   MEDIA_CONFLICT_MESSAGE,
   compareSeasons,
-  defaultMediaSeason,
+  isListedMediaSeason,
   mediaLinkLabel,
-  mediaSeasonChoices,
   parseMediaUrl,
+  selectedMediaSeason,
   type MediaCard,
 } from "@/lib/media-catalog";
 import { publishMinutesLock } from "@/lib/minutes-session";
@@ -105,10 +106,7 @@ function FilterRow({
 }
 
 function CollectionFields({ initial }: { initial?: MediaCard | null }) {
-  const seasons = mediaSeasonChoices(initial?.season);
-  const season = seasons.includes(initial?.season ?? "")
-    ? (initial?.season ?? "")
-    : defaultMediaSeason();
+  const season = selectedMediaSeason(initial?.season);
   return (
     <div className="grid gap-4">
       <label className="block">
@@ -140,7 +138,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
           Year
         </span>
         <select name="season" required defaultValue={season} className={fieldClass}>
-          {seasons.map((option) => (
+          {MEDIA_SEASONS.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -216,7 +214,6 @@ export function MediaLibrary({
   const [version, setVersion] = useState(initialVersion);
   const [items, setItems] = useState(initialItems);
   const [season, setSeason] = useState("all");
-  const [category, setCategory] = useState("all");
   const [editing, setEditing] = useState<MediaCard | null>(null);
   const [adding, setAdding] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -232,25 +229,18 @@ export function MediaLibrary({
     [items],
   );
   const seasons = useMemo(
-    () => [...new Set(ordered.map((item) => item.season))].sort(compareSeasons),
-    [ordered],
-  );
-  const categories = useMemo(
     () =>
-      [...new Set(ordered.map((item) => item.category).filter((category) => category))].sort(
-        (a, b) => a.localeCompare(b),
-      ),
+      [...new Set(ordered.map((item) => item.season))]
+        .filter(isListedMediaSeason)
+        .sort(compareSeasons),
     [ordered],
   );
   const seasonFilter = season !== "all" && !seasons.includes(season) ? "all" : season;
-  const categoryFilter =
-    category !== "all" && !categories.includes(category) ? "all" : category;
   const visible = ordered.filter((item) => {
     if (seasonFilter !== "all" && item.season !== seasonFilter) return false;
-    if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
     return true;
   });
-  const filtering = seasonFilter !== "all" || categoryFilter !== "all";
+  const filtering = seasonFilter !== "all";
 
   function applyPayload(data: LibraryPayload, response: Response) {
     if (response.status === 401) {
@@ -453,12 +443,6 @@ export function MediaLibrary({
             options={seasons}
             onChange={setSeason}
           />
-          <FilterRow
-            label="Category"
-            value={categoryFilter}
-            options={categories}
-            onChange={setCategory}
-          />
         </div>
       ) : null}
 
@@ -488,11 +472,6 @@ export function MediaLibrary({
                 <Cover season={item.season} url={item.coverUrl} />
               </div>
               <div className="flex flex-1 flex-col p-4">
-                {item.category ? (
-                  <p className="text-[0.65rem] font-semibold tracking-[0.18em] text-red-400 uppercase">
-                    {item.category}
-                  </p>
-                ) : null}
                 <h2 className="font-heading mt-2 text-2xl tracking-wide text-white uppercase">
                   {item.title}
                 </h2>
