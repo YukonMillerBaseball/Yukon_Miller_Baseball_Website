@@ -7,6 +7,7 @@ import {
   editCollection,
   emptyCatalog,
   inspectCover,
+  isListedMediaSeason,
   parseCollectionInput,
   parseVersion,
   removeCollection,
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  if (!isListedMediaSeason(parsed.input.season)) {
+    return NextResponse.json({ error: "Choose a season." }, { status: 400 });
+  }
   const coverResult = await readCover(form);
   if ("error" in coverResult) {
     return NextResponse.json({ error: coverResult.error }, { status: 400 });
@@ -196,6 +200,13 @@ export async function PATCH(request: Request) {
       { error: "The media library is temporarily unavailable." },
       { status: 503 },
     );
+  }
+  const current = read.catalog.items.find((item) => item.id === id);
+  if (
+    !isListedMediaSeason(parsed.input.season) &&
+    parsed.input.season !== current?.season
+  ) {
+    return NextResponse.json({ error: "Choose a season." }, { status: 400 });
   }
 
   let coverFile: string | null | undefined;

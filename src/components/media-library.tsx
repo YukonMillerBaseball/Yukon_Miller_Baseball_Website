@@ -13,7 +13,9 @@ import {
 import {
   MEDIA_CONFLICT_MESSAGE,
   compareSeasons,
+  defaultMediaSeason,
   mediaLinkLabel,
+  mediaSeasonChoices,
   parseMediaUrl,
   type MediaCard,
 } from "@/lib/media-catalog";
@@ -102,15 +104,11 @@ function FilterRow({
   );
 }
 
-function CollectionFields({
-  initial,
-  seasons,
-  categories,
-}: {
-  initial?: MediaCard | null;
-  seasons: string[];
-  categories: string[];
-}) {
+function CollectionFields({ initial }: { initial?: MediaCard | null }) {
+  const seasons = mediaSeasonChoices(initial?.season);
+  const season = seasons.includes(initial?.season ?? "")
+    ? (initial?.season ?? "")
+    : defaultMediaSeason();
   return (
     <div className="grid gap-4">
       <label className="block">
@@ -137,44 +135,18 @@ function CollectionFields({
           className={cn(fieldClass, "h-auto py-2")}
         />
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
-            Year or season
-          </span>
-          <input
-            name="season"
-            required
-            maxLength={40}
-            list="media-seasons"
-            defaultValue={initial?.season ?? ""}
-            className={fieldClass}
-          />
-          <datalist id="media-seasons">
-            {seasons.map((season) => (
-              <option key={season} value={season} />
-            ))}
-          </datalist>
-        </label>
-        <label className="block">
-          <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
-            Category
-          </span>
-          <input
-            name="category"
-            required
-            maxLength={40}
-            list="media-categories"
-            defaultValue={initial?.category ?? ""}
-            className={fieldClass}
-          />
-          <datalist id="media-categories">
-            {categories.map((category) => (
-              <option key={category} value={category} />
-            ))}
-          </datalist>
-        </label>
-      </div>
+      <label className="block">
+        <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
+          Year
+        </span>
+        <select name="season" required defaultValue={season} className={fieldClass}>
+          {seasons.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="block">
         <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
           Link
@@ -264,7 +236,10 @@ export function MediaLibrary({
     [ordered],
   );
   const categories = useMemo(
-    () => [...new Set(ordered.map((item) => item.category))].sort((a, b) => a.localeCompare(b)),
+    () =>
+      [...new Set(ordered.map((item) => item.category).filter((category) => category))].sort(
+        (a, b) => a.localeCompare(b),
+      ),
     [ordered],
   );
   const seasonFilter = season !== "all" && !seasons.includes(season) ? "all" : season;
@@ -513,9 +488,11 @@ export function MediaLibrary({
                 <Cover season={item.season} url={item.coverUrl} />
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <p className="text-[0.65rem] font-semibold tracking-[0.18em] text-red-400 uppercase">
-                  {item.category}
-                </p>
+                {item.category ? (
+                  <p className="text-[0.65rem] font-semibold tracking-[0.18em] text-red-400 uppercase">
+                    {item.category}
+                  </p>
+                ) : null}
                 <h2 className="font-heading mt-2 text-2xl tracking-wide text-white uppercase">
                   {item.title}
                 </h2>
@@ -624,11 +601,7 @@ export function MediaLibrary({
             aria-busy={pending}
             className="grid gap-4"
           >
-            <CollectionFields
-              initial={editing}
-              seasons={seasons}
-              categories={categories}
-            />
+            <CollectionFields initial={editing} />
             {error && formOpen ? (
               <p className={cn("text-sm", conflict ? "text-amber-200" : "text-red-400")}>
                 {error}{" "}

@@ -9,6 +9,30 @@ export const MAX_DESCRIPTION_LENGTH = 500;
 export const MAX_SEASON_LENGTH = 40;
 export const MAX_CATEGORY_LENGTH = 40;
 export const MAX_URL_LENGTH = 2000;
+export const MEDIA_SEASON_START = 2025;
+export const MEDIA_SEASON_END = 2035;
+export const MEDIA_SEASONS = Array.from(
+  { length: MEDIA_SEASON_END - MEDIA_SEASON_START + 1 },
+  (_, index) => {
+    const year = MEDIA_SEASON_START + index;
+    return `${year}-${year + 1}`;
+  },
+);
+
+export function isListedMediaSeason(season: string) {
+  return MEDIA_SEASONS.includes(season);
+}
+
+export function mediaSeasonChoices(current?: string | null) {
+  if (current && !isListedMediaSeason(current)) return [current, ...MEDIA_SEASONS];
+  return MEDIA_SEASONS;
+}
+
+export function defaultMediaSeason(now = new Date()) {
+  const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  const season = `${start}-${start + 1}`;
+  return isListedMediaSeason(season) ? season : MEDIA_SEASONS[0];
+}
 
 const COVER_NAME =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|png|webp)$/;
@@ -137,9 +161,9 @@ export function parseCollectionInput(value: {
   const description = cleanText(value.description ?? "", MAX_DESCRIPTION_LENGTH);
   if (description === null) return { error: "Enter a shorter description." };
   const season = cleanText(value.season, MAX_SEASON_LENGTH);
-  if (!season) return { error: "Enter a year or season." };
-  const category = cleanText(value.category, MAX_CATEGORY_LENGTH);
-  if (!category) return { error: "Enter a category." };
+  if (!season) return { error: "Choose a season." };
+  const category = cleanText(value.category ?? "", MAX_CATEGORY_LENGTH);
+  if (category === null) return { error: "Enter a shorter category." };
   if (typeof value.url !== "string") return { error: "Enter an https link." };
   const url = parseMediaUrl(value.url);
   if (!url) return { error: "Enter an https link." };
@@ -233,6 +257,7 @@ export function editCollection(
       ? {
           ...item,
           ...input,
+          category: input.category || current.category,
           coverFile: nextCover,
           updatedAt: now,
         }
