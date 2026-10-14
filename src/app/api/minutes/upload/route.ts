@@ -1,4 +1,4 @@
-import { requireMinutes } from "@/lib/minutes-auth";
+import { privateJson, requireMinutes } from "@/lib/minutes-auth";
 import {
   createMinutesUploadUrl,
   findMinutesRecord,
@@ -9,13 +9,12 @@ import {
   minutesWritePlan,
   safeMinutesName,
 } from "@/lib/minutes-store";
-import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function conflictResponse(name: string, etag: string) {
-  return NextResponse.json(
+  return privateJson(
     {
       exists: true,
       name,
@@ -39,15 +38,15 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "Choose a document." }, { status: 400 });
+    return privateJson({ error: "Choose a document." }, { status: 400 });
   }
 
   const size = typeof body.size === "number" ? body.size : Number(body.size);
   if (!Number.isFinite(size) || size <= 0) {
-    return NextResponse.json({ error: "Choose a document." }, { status: 400 });
+    return privateJson({ error: "Choose a document." }, { status: 400 });
   }
   if (size > MAX_MINUTES_BYTES) {
-    return NextResponse.json(
+    return privateJson(
       { error: "File must be 80 MB or smaller." },
       { status: 400 },
     );
@@ -55,7 +54,7 @@ export async function POST(request: Request) {
 
   const requested = safeMinutesName(typeof body.name === "string" ? body.name : "");
   if (!requested) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Use a PDF, Word .doc, or .docx file." },
       { status: 400 },
     );
@@ -64,7 +63,7 @@ export async function POST(request: Request) {
   const replace = body.replace === true;
   const etag = typeof body.etag === "string" ? body.etag : null;
   if (replace && !etag) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Confirm the existing document before replacing it." },
       { status: 400 },
     );
@@ -77,7 +76,7 @@ export async function POST(request: Request) {
     if (isMinutesConflict(error)) {
       return conflictResponse(error.storedName, error.etag);
     }
-    return NextResponse.json(
+    return privateJson(
       { error: "Could not check existing documents." },
       { status: 500 },
     );
@@ -87,7 +86,7 @@ export async function POST(request: Request) {
   if (plan.action === "conflict") return conflictResponse(plan.name, plan.etag);
 
   if (!minutesUsesBlob()) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Direct upload is not available here.", fallback: true },
       { status: 503 },
     );
@@ -100,12 +99,12 @@ export async function POST(request: Request) {
         ? { allowOverwrite: true, ifMatch: plan.etag }
         : { allowOverwrite: false },
     );
-    return NextResponse.json(upload);
+    return privateJson(upload);
   } catch (error) {
     if (error instanceof MinutesConflictError || isMinutesConflict(error)) {
       return conflictResponse(error.storedName, error.etag);
     }
-    return NextResponse.json(
+    return privateJson(
       { error: "Could not start upload." },
       { status: 500 },
     );

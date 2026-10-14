@@ -1,4 +1,4 @@
-import { requireMinutes } from "@/lib/minutes-auth";
+import { privateJson, privateNoStore, requireMinutes } from "@/lib/minutes-auth";
 import {
   createMinutesDownloadUrl,
   deleteMinutes,
@@ -28,7 +28,7 @@ function isPdfName(name: string) {
 
 async function inlinePdf(name: string) {
   if (!isPdfName(name)) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Only PDF files can be previewed." },
       { status: 400 },
     );
@@ -36,10 +36,10 @@ async function inlinePdf(name: string) {
 
   const file = await openMinutes(name);
   if (!file) {
-    return NextResponse.json({ error: "File not found." }, { status: 404 });
+    return privateJson({ error: "File not found." }, { status: 404 });
   }
 
-  return new NextResponse(file.body, {
+  return privateNoStore(new NextResponse(file.body, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${name.replace(/"/g, "")}"`,
@@ -48,7 +48,7 @@ async function inlinePdf(name: string) {
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "frame-ancestors 'self'",
     },
-  });
+  }));
 }
 
 export async function GET(request: Request) {
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
   const name = fileNameFrom(request);
   if (!name) {
-    return NextResponse.json({ error: "Invalid file name." }, { status: 400 });
+    return privateJson({ error: "Invalid file name." }, { status: 400 });
   }
 
   if (wantsInlinePdf(request)) {
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   if (minutesUsesBlob()) {
     try {
       const url = await createMinutesDownloadUrl(name);
-      return NextResponse.redirect(url, 302);
+      return privateNoStore(NextResponse.redirect(url, 302));
     } catch {
       // Fall through to a proxied download.
     }
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 
   const bytes = await readMinutes(name);
   if (!bytes) {
-    return NextResponse.json({ error: "File not found." }, { status: 404 });
+    return privateJson({ error: "File not found." }, { status: 404 });
   }
 
   const ext = name.toLowerCase().slice(name.lastIndexOf("."));
@@ -88,13 +88,13 @@ export async function GET(request: Request) {
           ? "application/msword"
           : "application/octet-stream";
 
-  return new NextResponse(Buffer.from(bytes), {
+  return privateNoStore(new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": type,
       "Content-Disposition": `attachment; filename="${name.replace(/"/g, "")}"`,
       "Cache-Control": "private, no-store",
     },
-  });
+  }));
 }
 
 export async function DELETE(request: Request) {
@@ -107,9 +107,9 @@ export async function DELETE(request: Request) {
 
   const name = fileNameFrom(request);
   if (!name) {
-    return NextResponse.json({ error: "Invalid file name." }, { status: 400 });
+    return privateJson({ error: "Invalid file name." }, { status: 400 });
   }
 
   await deleteMinutes(name);
-  return NextResponse.json({ ok: true });
+  return privateJson({ ok: true });
 }

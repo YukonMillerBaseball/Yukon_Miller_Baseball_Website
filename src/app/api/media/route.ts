@@ -1,4 +1,4 @@
-import { requireMinutes } from "@/lib/minutes-auth";
+import { privateJson, requireMinutes } from "@/lib/minutes-auth";
 import {
   MEDIA_CONFLICT_MESSAGE,
   MAX_COVER_BYTES,
@@ -23,7 +23,6 @@ import {
   saveMediaCatalog,
   saveMediaCover,
 } from "@/lib/media-store";
-import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +31,7 @@ const COLLECTION_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function catalogResponse(catalog: MediaCatalog, unavailable = false) {
-  return NextResponse.json({
+  return privateJson({
     version: catalog.version,
     items: toMediaCards(catalog),
     unavailable,
@@ -40,14 +39,14 @@ function catalogResponse(catalog: MediaCatalog, unavailable = false) {
 }
 
 function conflictResponse() {
-  return NextResponse.json(
+  return privateJson(
     { error: MEDIA_CONFLICT_MESSAGE, conflict: true },
     { status: 409 },
   );
 }
 
 function rejectWrite() {
-  return NextResponse.json({ error: "Could not save the library." }, { status: 403 });
+  return privateJson({ error: "Could not save the library." }, { status: 403 });
 }
 
 async function requireAdmin() {
@@ -96,12 +95,12 @@ export async function POST(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
 
   const expectedVersion = parseVersion(field(form, "version"));
   if (expectedVersion === null) {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
   const parsed = parseCollectionInput({
     title: field(form, "title"),
@@ -112,10 +111,10 @@ export async function POST(request: Request) {
     linkKind: field(form, "linkKind"),
   });
   if ("error" in parsed) {
-    return NextResponse.json({ error: parsed.error }, { status: 400 });
+    return privateJson({ error: parsed.error }, { status: 400 });
   }
   if (!isListedMediaSeason(parsed.input.season)) {
-    return NextResponse.json({ error: "Choose a season." }, { status: 400 });
+    return privateJson({ error: "Choose a season." }, { status: 400 });
   }
   const coverFrame = parseCoverFrame({
     coverFit: field(form, "coverFit"),
@@ -124,16 +123,16 @@ export async function POST(request: Request) {
     coverZoom: field(form, "coverZoom"),
   });
   if ("error" in coverFrame) {
-    return NextResponse.json({ error: coverFrame.error }, { status: 400 });
+    return privateJson({ error: coverFrame.error }, { status: 400 });
   }
   const coverResult = await readCover(form);
   if ("error" in coverResult) {
-    return NextResponse.json({ error: coverResult.error }, { status: 400 });
+    return privateJson({ error: coverResult.error }, { status: 400 });
   }
 
   const read = await readMediaCatalog();
   if (read.status !== "ready") {
-    return NextResponse.json(
+    return privateJson(
       { error: "The media library is temporarily unavailable." },
       { status: 503 },
     );
@@ -157,7 +156,7 @@ export async function POST(request: Request) {
     );
     if ("error" in added) {
       await deleteMediaCover(coverFile);
-      return NextResponse.json({ error: added.error }, { status: 400 });
+      return privateJson({ error: added.error }, { status: 400 });
     }
     await saveMediaCatalog(added.catalog, {
       version: read.catalog.version,
@@ -167,7 +166,7 @@ export async function POST(request: Request) {
   } catch (error) {
     await deleteMediaCover(coverFile);
     if (error instanceof MediaCatalogConflict) return conflictResponse();
-    return NextResponse.json({ error: "Could not save the library." }, { status: 500 });
+    return privateJson({ error: "Could not save the library." }, { status: 500 });
   }
 }
 
@@ -185,13 +184,13 @@ export async function PATCH(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
 
   const expectedVersion = parseVersion(field(form, "version"));
   const id = field(form, "id");
   if (expectedVersion === null || !COLLECTION_ID.test(id)) {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
   const parsed = parseCollectionInput({
     title: field(form, "title"),
@@ -202,7 +201,7 @@ export async function PATCH(request: Request) {
     linkKind: field(form, "linkKind"),
   });
   if ("error" in parsed) {
-    return NextResponse.json({ error: parsed.error }, { status: 400 });
+    return privateJson({ error: parsed.error }, { status: 400 });
   }
   const coverFrame = parseCoverFrame({
     coverFit: field(form, "coverFit"),
@@ -211,23 +210,23 @@ export async function PATCH(request: Request) {
     coverZoom: field(form, "coverZoom"),
   });
   if ("error" in coverFrame) {
-    return NextResponse.json({ error: coverFrame.error }, { status: 400 });
+    return privateJson({ error: coverFrame.error }, { status: 400 });
   }
   const coverResult = await readCover(form);
   if ("error" in coverResult) {
-    return NextResponse.json({ error: coverResult.error }, { status: 400 });
+    return privateJson({ error: coverResult.error }, { status: 400 });
   }
   const removeCover = field(form, "removeCover") === "true";
 
   const read = await readMediaCatalog();
   if (read.status !== "ready") {
-    return NextResponse.json(
+    return privateJson(
       { error: "The media library is temporarily unavailable." },
       { status: 503 },
     );
   }
   if (!isListedMediaSeason(parsed.input.season)) {
-    return NextResponse.json({ error: "Choose a season." }, { status: 400 });
+    return privateJson({ error: "Choose a season." }, { status: 400 });
   }
 
   let coverFile: string | null | undefined;
@@ -253,7 +252,7 @@ export async function PATCH(request: Request) {
     );
     if (edited === "missing") {
       await deleteMediaCover(uploaded);
-      return NextResponse.json({ error: "That collection was not found." }, { status: 404 });
+      return privateJson({ error: "That collection was not found." }, { status: 404 });
     }
     await saveMediaCatalog(edited.catalog, {
       version: read.catalog.version,
@@ -264,7 +263,7 @@ export async function PATCH(request: Request) {
   } catch (error) {
     await deleteMediaCover(uploaded);
     if (error instanceof MediaCatalogConflict) return conflictResponse();
-    return NextResponse.json({ error: "Could not save the library." }, { status: 500 });
+    return privateJson({ error: "Could not save the library." }, { status: 500 });
   }
 }
 
@@ -273,19 +272,19 @@ async function reorder(request: Request) {
   try {
     body = (await request.json()) as { version?: unknown; order?: unknown };
   } catch {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
   const expectedVersion = parseVersion(body.version);
   if (expectedVersion === null || !Array.isArray(body.order)) {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
   if (!body.order.every((id) => typeof id === "string" && COLLECTION_ID.test(id))) {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
 
   const read = await readMediaCatalog();
   if (read.status !== "ready") {
-    return NextResponse.json(
+    return privateJson(
       { error: "The media library is temporarily unavailable." },
       { status: 503 },
     );
@@ -294,7 +293,7 @@ async function reorder(request: Request) {
   try {
     const ordered = reorderCollections(read.catalog, expectedVersion, body.order);
     if (ordered === "invalid") {
-      return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+      return privateJson({ error: "Could not save the library." }, { status: 400 });
     }
     await saveMediaCatalog(ordered.catalog, {
       version: read.catalog.version,
@@ -303,7 +302,7 @@ async function reorder(request: Request) {
     return catalogResponse(ordered.catalog);
   } catch (error) {
     if (error instanceof MediaCatalogConflict) return conflictResponse();
-    return NextResponse.json({ error: "Could not save the library." }, { status: 500 });
+    return privateJson({ error: "Could not save the library." }, { status: 500 });
   }
 }
 
@@ -316,16 +315,16 @@ export async function DELETE(request: Request) {
   try {
     body = (await request.json()) as { version?: unknown; id?: unknown };
   } catch {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
   const expectedVersion = parseVersion(body.version);
   if (expectedVersion === null || typeof body.id !== "string") {
-    return NextResponse.json({ error: "Could not save the library." }, { status: 400 });
+    return privateJson({ error: "Could not save the library." }, { status: 400 });
   }
 
   const read = await readMediaCatalog();
   if (read.status !== "ready") {
-    return NextResponse.json(
+    return privateJson(
       { error: "The media library is temporarily unavailable." },
       { status: 503 },
     );
@@ -334,7 +333,7 @@ export async function DELETE(request: Request) {
   try {
     const removed = removeCollection(read.catalog, expectedVersion, body.id);
     if (removed === "missing") {
-      return NextResponse.json({ error: "That collection was not found." }, { status: 404 });
+      return privateJson({ error: "That collection was not found." }, { status: 404 });
     }
     await saveMediaCatalog(removed.catalog, {
       version: read.catalog.version,
@@ -344,6 +343,6 @@ export async function DELETE(request: Request) {
     return catalogResponse(removed.catalog);
   } catch (error) {
     if (error instanceof MediaCatalogConflict) return conflictResponse();
-    return NextResponse.json({ error: "Could not save the library." }, { status: 500 });
+    return privateJson({ error: "Could not save the library." }, { status: 500 });
   }
 }
