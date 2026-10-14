@@ -3,7 +3,14 @@
 import { MinutesPdfViewer, minutesFileUrl } from "@/components/minutes-pdf-viewer";
 import { publishMinutesLock } from "@/lib/minutes-session";
 import { buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
@@ -104,6 +111,11 @@ export function MinutesVault({
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{
+    file: File;
+    name: string;
+    etag: string;
+  } | null>(null);
 
   function applyLibrary(data: { files?: MinutesFile[]; unavailable?: boolean }) {
     if (data.unavailable) {
@@ -145,23 +157,46 @@ export function MinutesVault({
     applyLibrary(data);
   }
 
-  async function uploadDirect(file: File) {
+  function rememberDuplicate(
+    file: File,
+    data: { exists?: boolean; name?: string; etag?: string },
+  ) {
+    if (!data.exists || !data.name || !data.etag) return false;
+    setDuplicate({ file, name: data.name, etag: data.etag });
+    return true;
+  }
+
+  async function uploadDirect(
+    file: File,
+    authorization: { replace: boolean; etag?: string },
+  ) {
     const started = await fetch("/api/minutes/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: file.name, size: file.size }),
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        replace: authorization.replace,
+        etag: authorization.etag,
+      }),
     });
     const startData = (await started.json()) as {
       url?: string;
       contentType?: string;
       error?: string;
       expired?: boolean;
+      exists?: boolean;
+      name?: string;
+      etag?: string;
     };
     if (started.status === 401 && startData.expired) {
       onSessionExpired?.();
-      return true;
+      return "expired" as const;
     }
-    if (started.status === 503) return false;
+    if (started.status === 409 && rememberDuplicate(file, startData)) {
+      return "duplicate" as const;
+    }
+    if (started.status === 503) return "fallback" as const;
     if (!started.ok || !startData.url) {
       throw new Error(startData.error || "Upload failed.");
     }
@@ -174,34 +209,50 @@ export function MinutesVault({
       body: file,
     });
     if (!stored.ok) {
-      const detail = await stored.text().catch(() => "");
-      throw new Error(
-        detail
-          ? `Upload failed (${stored.status}).`
-          : "Upload failed. Try again.",
-      );
+      if (stored.status === 409 || stored.status === 412) {
+        setDuplicate(null);
+        setError(
+          "The existing document was kept because it changed during the upload.",
+        );
+        await refreshFiles().catch(() => undefined);
+        return "kept" as const;
+      }
+      throw new Error("Upload failed. Try again.");
     }
+    setDuplicate(null);
     await refreshFiles();
-    return true;
+    return "stored" as const;
   }
 
-  async function uploadThroughServer(file: File) {
+  async function uploadThroughServer(
+    file: File,
+    authorization: { replace: boolean; etag?: string },
+  ) {
     const body = new FormData();
     body.set("file", file);
+    if (authorization.replace) {
+      body.set("replace", "1");
+      body.set("etag", authorization.etag ?? "");
+    }
     const response = await fetch("/api/minutes", { method: "POST", body });
     const data = (await response.json()) as {
       files?: MinutesFile[];
       unavailable?: boolean;
       error?: string;
       expired?: boolean;
+      exists?: boolean;
+      name?: string;
+      etag?: string;
     };
     if (response.status === 401 && data.expired) {
       onSessionExpired?.();
       return;
     }
+    if (response.status === 409 && rememberDuplicate(file, data)) return;
     if (!response.ok) {
       throw new Error(data.error || "Upload failed.");
     }
+    setDuplicate(null);
     applyLibrary(data);
   }
 
@@ -214,11 +265,19 @@ export function MinutesVault({
       return;
     }
 
+    setDuplicate(null);
+    await sendUpload(file, { replace: false });
+  }
+
+  async function sendUpload(
+    file: File,
+    authorization: { replace: boolean; etag?: string },
+  ) {
     setUploading(true);
     setError("");
     try {
-      const usedDirect = await uploadDirect(file);
-      if (!usedDirect) await uploadThroughServer(file);
+      const direct = await uploadDirect(file, authorization);
+      if (direct === "fallback") await uploadThroughServer(file, authorization);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Upload failed. Try again.");
     } finally {
@@ -337,6 +396,66 @@ export function MinutesVault({
           ))}
         </ul>
       )}
+      <Dialog
+        open={duplicate !== null}
+        onOpenChange={(open) => {
+          if (!open && !uploading) setDuplicate(null);
+        }}
+      >
+        <DialogContent className="bg-zinc-950 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white uppercase">
+              Document already exists
+            </DialogTitle>
+            <DialogDescription className="space-y-3 text-sm leading-6 text-zinc-400">
+              <span className="block">
+                A document with this filename is already stored in Meeting
+                Minutes.
+              </span>
+              <span className="block">
+                Uploading this file could replace the existing document.
+              </span>
+              <span className="block text-zinc-300">
+                What would you like to do?
+              </span>
+              {duplicate ? (
+                <span className="block text-xs break-all text-zinc-500">
+                  {duplicate.name}
+                </span>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              autoFocus
+              disabled={uploading}
+              onClick={() => setDuplicate(null)}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-11 w-full border-white/15 px-4 uppercase sm:w-auto",
+              )}
+            >
+              Cancel upload
+            </button>
+            <button
+              type="button"
+              disabled={uploading || !duplicate}
+              onClick={() => {
+                if (!duplicate) return;
+                const pending = duplicate;
+                void sendUpload(pending.file, {
+                  replace: true,
+                  etag: pending.etag,
+                });
+              }}
+              className={cn(buttonVariants(), "h-11 w-full px-4 uppercase sm:w-auto")}
+            >
+              {uploading ? "Uploading…" : "Replace existing file"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

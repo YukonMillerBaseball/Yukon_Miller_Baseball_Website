@@ -70,16 +70,64 @@ async function shaFor(name: string) {
   }
 }
 
-export async function saveGithubMinutes(name: string, bytes: Uint8Array) {
-  const sha = await shaFor(name);
-  await gh(`/contents/${PREFIX}${encodeURIComponent(name)}`, {
-    method: "PUT",
-    body: JSON.stringify({
-      message: sha ? `Update ${name}` : `Upload ${name}`,
-      content: Buffer.from(bytes).toString("base64"),
-      sha,
-    }),
-  });
+function minutesNamesMatch(left: string, right: string) {
+  return left.localeCompare(right, "en", { sensitivity: "accent" }) === 0;
+}
+
+export async function findGithubMinutesRecord(target: string) {
+  let data: unknown;
+  try {
+    data = await gh(`/contents/${PREFIX}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "Not Found") return null;
+    throw error;
+  }
+  if (!Array.isArray(data)) return null;
+  const match = data.find(
+    (file): file is { name: string; sha: string } =>
+      Boolean(file) &&
+      typeof file === "object" &&
+      "name" in file &&
+      "sha" in file &&
+      typeof file.name === "string" &&
+      typeof file.sha === "string" &&
+      minutesNamesMatch(file.name, target),
+  );
+  return match ? { name: match.name, etag: match.sha } : null;
+}
+
+export async function saveGithubMinutes(
+  name: string,
+  bytes: Uint8Array,
+  mode: { replace: false } | { replace: true; etag: string },
+) {
+  const body: { message: string; content: string; sha?: string } = {
+    message: mode.replace ? `Update ${name}` : `Upload ${name}`,
+    content: Buffer.from(bytes).toString("base64"),
+  };
+  if (mode.replace) body.sha = mode.etag;
+  try {
+    await gh(`/contents/${PREFIX}${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/sha|conflict/i.test(message)) {
+      const existing = await findGithubMinutesRecord(name).catch(() => null);
+      const conflict = new Error(
+        "A document with this filename is already stored in Meeting Minutes.",
+      );
+      conflict.name = "MinutesConflictError";
+      Object.assign(conflict, {
+        storedName: existing?.name ?? name,
+        etag: existing?.etag ?? "",
+      });
+      throw conflict;
+    }
+    throw error;
+  }
 }
 
 export async function readGithubMinutes(name: string) {

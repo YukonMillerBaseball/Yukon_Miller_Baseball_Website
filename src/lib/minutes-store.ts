@@ -1,13 +1,22 @@
 import "server-only";
 
-import { del, get, issueSignedToken, list, presignUrl, put } from "@vercel/blob";
+import {
+  BlobPreconditionFailedError,
+  del,
+  get,
+  issueSignedToken,
+  list,
+  presignUrl,
+  put,
+} from "@vercel/blob";
 import { createReadStream } from "fs";
-import { mkdir, readdir, readFile, stat, unlink, writeFile } from "fs/promises";
+import { mkdir, open, readdir, readFile, rename, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { Readable } from "stream";
 import { ensureMinutesBlobStoreId } from "@/lib/minutes-blob";
 import {
   deleteGithubMinutes,
+  findGithubMinutesRecord,
   listGithubMinutes,
   minutesUsesGithub,
   readGithubMinutes,
@@ -19,6 +28,28 @@ export type MinutesFile = {
   size: number;
   uploadedAt: string;
 };
+
+export class MinutesConflictError extends Error {
+  readonly storedName: string;
+  readonly etag: string;
+
+  constructor(storedName: string, etag: string) {
+    super("A document with this filename is already stored in Meeting Minutes.");
+    this.name = "MinutesConflictError";
+    this.storedName = storedName;
+    this.etag = etag;
+  }
+}
+
+export function isMinutesConflict(error: unknown): error is MinutesConflictError {
+  return (
+    error instanceof MinutesConflictError ||
+    (error instanceof Error &&
+      error.name === "MinutesConflictError" &&
+      "storedName" in error &&
+      "etag" in error)
+  );
+}
 
 export const MAX_MINUTES_BYTES = 80 * 1024 * 1024;
 export const BLOB_PREFIX = "minutes/";
@@ -59,6 +90,28 @@ export function contentTypeForMinutes(name: string) {
   }
   if (ext === ".doc") return "application/msword";
   return "application/octet-stream";
+}
+
+export function minutesNamesMatch(left: string, right: string) {
+  return left.localeCompare(right, "en", { sensitivity: "accent" }) === 0;
+}
+
+export type MinutesWritePlan =
+  | { action: "create"; name: string }
+  | { action: "replace"; name: string; etag: string }
+  | { action: "conflict"; name: string; etag: string };
+
+export function minutesWritePlan(
+  requestedName: string,
+  current: { name: string; etag: string } | null,
+  replace: boolean,
+  etag: string | null,
+): MinutesWritePlan {
+  if (!current) return { action: "create", name: requestedName };
+  if (!replace || etag !== current.etag) {
+    return { action: "conflict", name: current.name, etag: current.etag };
+  }
+  return { action: "replace", name: current.name, etag: current.etag };
 }
 
 export function safeMinutesName(raw: string) {
@@ -113,15 +166,19 @@ async function listLocal(): Promise<MinutesFile[]> {
   return files.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
 }
 
-export async function createMinutesUploadUrl(name: string) {
+export async function createMinutesUploadUrl(
+  name: string,
+  mode: { allowOverwrite: false } | { allowOverwrite: true; ifMatch: string },
+) {
   const auth = await blobAuth();
   const pathname = minutesBlobPath(name);
+  const validUntil = Date.now() + 15 * 60 * 1000;
   const token = await issueSignedToken({
     pathname,
     operations: ["put"],
     allowedContentTypes: MINUTES_CONTENT_TYPES,
     maximumSizeInBytes: MAX_MINUTES_BYTES,
-    validUntil: Date.now() + 15 * 60 * 1000,
+    validUntil,
     ...auth,
   });
   const { presignedUrl } = await presignUrl(token, {
@@ -131,9 +188,10 @@ export async function createMinutesUploadUrl(name: string) {
     allowedContentTypes: MINUTES_CONTENT_TYPES,
     maximumSizeInBytes: MAX_MINUTES_BYTES,
     addRandomSuffix: false,
-    allowOverwrite: true,
+    allowOverwrite: mode.allowOverwrite,
+    ...(mode.allowOverwrite ? { ifMatch: mode.ifMatch } : {}),
     cacheControlMaxAge: 60,
-    validUntil: Date.now() + 15 * 60 * 1000,
+    validUntil,
     ...auth,
   });
   return {
@@ -141,6 +199,64 @@ export async function createMinutesUploadUrl(name: string) {
     name,
     contentType: contentTypeForMinutes(name),
   };
+}
+
+function localMinutesEtag(info: { mtimeMs: number; size: number }) {
+  return `${info.mtimeMs}-${info.size}`;
+}
+
+async function findLocalMinutesRecord(target: string) {
+  const dir = localDir();
+  await mkdir(dir, { recursive: true });
+  const names = await readdir(dir);
+  const match = names.find(
+    (name) =>
+      ALLOWED_EXT.has(path.posix.extname(name).toLowerCase()) &&
+      minutesNamesMatch(name, target),
+  );
+  if (!match) return null;
+  const info = await stat(path.join(dir, match));
+  return { name: match, etag: localMinutesEtag(info) };
+}
+
+async function findBlobMinutesRecord(target: string) {
+  const auth = await blobAuth();
+  let cursor: string | undefined;
+  do {
+    const result = await list({
+      prefix: BLOB_PREFIX,
+      cursor,
+      limit: 1000,
+      ...auth,
+    });
+    const match = result.blobs.find((blob) => {
+      const name = blob.pathname.slice(BLOB_PREFIX.length);
+      return (
+        ALLOWED_EXT.has(path.posix.extname(name).toLowerCase()) &&
+        minutesNamesMatch(name, target)
+      );
+    });
+    if (match) {
+      return {
+        name: match.pathname.slice(BLOB_PREFIX.length),
+        etag: match.etag,
+      };
+    }
+    cursor = result.hasMore ? result.cursor : undefined;
+  } while (cursor);
+  return null;
+}
+
+export async function findMinutesRecord(name: string) {
+  if (minutesUsesBlob()) {
+    try {
+      return await findBlobMinutesRecord(name);
+    } catch {
+      if (!minutesUsesGithub()) throw new Error("Could not check existing documents.");
+    }
+  }
+  if (minutesUsesGithub()) return findGithubMinutesRecord(name);
+  return findLocalMinutesRecord(name);
 }
 
 export async function createMinutesDownloadUrl(name: string) {
@@ -199,21 +315,70 @@ export async function listMinutesLibrary(): Promise<{
   }
 }
 
-export async function saveMinutes(name: string, bytes: Uint8Array) {
+async function writeLocalMinutes(
+  name: string,
+  bytes: Uint8Array,
+  mode: { replace: false } | { replace: true; etag: string },
+) {
+  const dir = localDir();
+  await mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, name);
+  if (!mode.replace) {
+    let handle: Awaited<ReturnType<typeof open>> | null = null;
+    try {
+      handle = await open(filePath, "wx");
+      await handle.writeFile(bytes);
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? error.code : "";
+      if (code === "EEXIST") {
+        const current = await findLocalMinutesRecord(name);
+        throw new MinutesConflictError(current?.name ?? name, current?.etag ?? "");
+      }
+      throw error;
+    } finally {
+      await handle?.close();
+    }
+    return;
+  }
+
+  const current = await findLocalMinutesRecord(name);
+  if (!current || current.etag !== mode.etag || current.name !== name) {
+    throw new MinutesConflictError(current?.name ?? name, current?.etag ?? "");
+  }
+  const temporary = `${filePath}.${process.pid}.uploading`;
+  await writeFile(temporary, bytes);
+  const again = await findLocalMinutesRecord(name);
+  if (!again || again.etag !== mode.etag) {
+    await unlink(temporary).catch(() => undefined);
+    throw new MinutesConflictError(again?.name ?? name, again?.etag ?? "");
+  }
+  await rename(temporary, filePath);
+}
+
+export async function saveMinutes(
+  name: string,
+  bytes: Uint8Array,
+  mode: { replace: false } | { replace: true; etag: string },
+) {
   if (minutesUsesBlob()) {
     try {
       await put(minutesBlobPath(name), Buffer.from(bytes), {
         access: "private",
         addRandomSuffix: false,
-        allowOverwrite: true,
+        allowOverwrite: mode.replace,
+        ...(mode.replace ? { ifMatch: mode.etag } : {}),
         contentType: contentTypeForMinutes(name),
         cacheControlMaxAge: 60,
         ...(await blobAuth()),
       });
       return;
-    } catch {
+    } catch (error) {
+      if (error instanceof BlobPreconditionFailedError || isMinutesConflict(error)) {
+        const current = await findBlobMinutesRecord(name).catch(() => null);
+        throw new MinutesConflictError(current?.name ?? name, current?.etag ?? "");
+      }
       if (minutesUsesGithub()) {
-        await saveGithubMinutes(name, bytes);
+        await saveGithubMinutes(name, bytes, mode.replace ? mode : { replace: false });
         return;
       }
       throw new Error("Could not save that file.");
@@ -221,7 +386,7 @@ export async function saveMinutes(name: string, bytes: Uint8Array) {
   }
 
   if (minutesUsesGithub()) {
-    await saveGithubMinutes(name, bytes);
+    await saveGithubMinutes(name, bytes, mode.replace ? mode : { replace: false });
     return;
   }
 
@@ -229,9 +394,7 @@ export async function saveMinutes(name: string, bytes: Uint8Array) {
     throw new Error("Minutes storage is not available on this deployment.");
   }
 
-  const dir = localDir();
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, name), bytes);
+  await writeLocalMinutes(name, bytes, mode.replace ? mode : { replace: false });
 }
 
 export async function openMinutes(name: string) {
