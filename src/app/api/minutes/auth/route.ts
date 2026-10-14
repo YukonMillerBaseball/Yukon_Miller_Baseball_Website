@@ -9,13 +9,13 @@ import {
   resolveMinutesRole,
 } from "@/lib/minutes-auth";
 import {
-  assertLoginAllowed,
-  clearLoginFailures,
   LoginLimitUnavailable,
-  recordLoginFailure,
+  pruneExpiredRateLimits,
+  reserveLoginSlot,
 } from "@/lib/minutes-login-limit";
 import { MINUTES_EXPIRED_MESSAGE, MINUTES_IDLE_MS } from "@/lib/minutes-session";
 import { cookies } from "next/headers";
+import { after } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,24 +62,19 @@ export async function POST(request: Request) {
   }
 
   if (!minutesAuthConfig()) return unavailable();
+  after(() => pruneExpiredRateLimits());
 
+  let slot;
   try {
-    const limit = await assertLoginAllowed(request);
-    if (limit.limited) return tooMany(limit.retryAfterSeconds);
+    slot = await reserveLoginSlot(request);
   } catch (error) {
     if (error instanceof LoginLimitUnavailable) return unavailable();
     throw error;
   }
+  if (slot.limited) return tooMany(slot.retryAfterSeconds);
 
   const role = resolveMinutesRole(password);
   if (!role) {
-    try {
-      const status = await recordLoginFailure(request);
-      if (status.limited) return tooMany(status.retryAfterSeconds);
-    } catch (error) {
-      if (error instanceof LoginLimitUnavailable) return unavailable();
-      throw error;
-    }
     return privateJson({ error: "Wrong password." }, { status: 401 });
   }
 
@@ -88,7 +83,6 @@ export async function POST(request: Request) {
 
   const jar = await cookies();
   jar.set(MINUTES_COOKIE, session, minutesCookieOptions(MINUTES_IDLE_MS / 1000));
-  await clearLoginFailures(request);
   return privateJson({ ok: true, admin: role === "admin" });
 }
 

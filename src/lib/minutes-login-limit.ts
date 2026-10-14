@@ -5,15 +5,20 @@ import {
   BlobPreconditionFailedError,
   del,
   get,
+  list,
   put,
 } from "@vercel/blob";
 import {
+  LOGIN_WINDOW_MS,
   LoginLimitUnavailable,
-  clearLoginLimit,
+  RATE_CURSOR_PATH,
+  RATE_LIMIT_PREFIX,
+  RATE_PRUNE_LIMIT,
+  isRateCounterPath,
   loginAttemptKey,
-  noteLoginFailure,
-  readLoginLimit,
+  reserveLoginAttempt,
   requestClientIp,
+  selectExpiredRateCounters,
   type LoginAttemptSnapshot,
   type LoginAttemptState,
   type LoginAttemptStore,
@@ -41,7 +46,9 @@ async function blobAuth() {
 
 function pathname(key: string) {
   if (!KEY.test(key)) throw new LoginLimitUnavailable();
-  return `auth-rate/v1/${key}.json`;
+  const path = `${RATE_LIMIT_PREFIX}${key}.json`;
+  if (!isRateCounterPath(path)) throw new LoginLimitUnavailable();
+  return path;
 }
 
 function isConflict(error: unknown) {
@@ -189,26 +196,91 @@ function attemptKey(request: Request) {
   return loginAttemptKey(requestClientIp(request), config.secret);
 }
 
-export async function assertLoginAllowed(request: Request, now = Date.now()) {
+export async function reserveLoginSlot(request: Request, now = Date.now()) {
   const store = storeForRuntime();
   if (!store) throw new LoginLimitUnavailable();
-  return readLoginLimit(store, attemptKey(request), now);
+  return reserveLoginAttempt(store, attemptKey(request), now);
 }
 
-export async function recordLoginFailure(request: Request, now = Date.now()) {
-  const store = storeForRuntime();
-  if (!store) throw new LoginLimitUnavailable();
-  return noteLoginFailure(store, attemptKey(request), now);
-}
-
-export async function clearLoginFailures(request: Request) {
-  const store = storeForRuntime();
-  if (!store) return;
-  try {
-    await clearLoginLimit(store, attemptKey(request));
-  } catch {
-    // The password was accepted. A missed reset only keeps this visitor's own counter.
+function sweepMemory(now: number) {
+  for (const [key, snapshot] of memory) {
+    const start = snapshot.state?.windowStart;
+    if (typeof start === "number" && now - start >= LOGIN_WINDOW_MS) memory.delete(key);
   }
+}
+
+async function readCursor() {
+  const result = await get(RATE_CURSOR_PATH, {
+    access: "private",
+    useCache: false,
+    ...(await blobAuth()),
+  });
+  if (!result || result.statusCode !== 200 || !result.stream) return undefined;
+  try {
+    const parsed = JSON.parse(await readStream(result.stream)) as { cursor?: unknown };
+    return typeof parsed.cursor === "string" && parsed.cursor ? parsed.cursor : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeCursor(cursor: string | undefined) {
+  await put(RATE_CURSOR_PATH, JSON.stringify({ cursor: cursor ?? null }), {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+    cacheControlMaxAge: 60,
+    ...(await blobAuth()),
+  });
+}
+
+async function pruneBlobPage(now: number) {
+  const cursor = await readCursor();
+  const page = await list({
+    prefix: RATE_LIMIT_PREFIX,
+    limit: RATE_PRUNE_LIMIT,
+    ...(cursor ? { cursor } : {}),
+    ...(await blobAuth()),
+  });
+  const expired = new Set(
+    selectExpiredRateCounters(
+      page.blobs.map((blob) => ({
+        pathname: blob.pathname,
+        uploadedAtMs: blob.uploadedAt.getTime(),
+      })),
+      now,
+    ).map((blob) => blob.pathname),
+  );
+  for (const blob of page.blobs) {
+    if (!expired.has(blob.pathname) || !isRateCounterPath(blob.pathname) || !blob.etag?.trim()) {
+      continue;
+    }
+    try {
+      await del(blob.pathname, { ...(await blobAuth()), ifMatch: blob.etag });
+    } catch (error) {
+      if (isConflict(error) || error instanceof BlobNotFoundError) continue;
+      throw error;
+    }
+  }
+  await writeCursor(page.hasMore ? page.cursor : undefined);
+}
+
+export async function pruneExpiredRateLimits(now = Date.now()) {
+  try {
+    if (!storeForRuntime()) return;
+    if (!blobConfigured()) {
+      sweepMemory(now);
+      return;
+    }
+    await pruneBlobPage(now);
+  } catch {
+    // Cleanup must not change the sign-in result.
+  }
+}
+
+export function rateLimitEntryCountForTests() {
+  return memory.size;
 }
 
 export function resetLoginLimitsForTests() {

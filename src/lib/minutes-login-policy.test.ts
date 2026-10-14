@@ -6,21 +6,24 @@ import {
   LOGIN_WRITE_ATTEMPTS,
   LoginLimitUnavailable,
   clearLoginLimit,
+  isRateCounterPath,
   loginAttemptKey,
   loginLimitStatus,
   nextLoginFailure,
-  noteLoginFailure,
+  RATE_RETENTION_MS,
   readLoginLimit,
   requestClientIp,
+  reserveLoginAttempt,
+  selectExpiredRateCounters,
   type LoginAttemptSnapshot,
   type LoginAttemptState,
   type LoginAttemptStore,
 } from "@/lib/minutes-login-policy";
 import {
-  assertLoginAllowed,
   classifyBlobRead,
-  clearLoginFailures,
-  recordLoginFailure,
+  pruneExpiredRateLimits,
+  rateLimitEntryCountForTests,
+  reserveLoginSlot,
   resetLoginLimitsForTests,
 } from "@/lib/minutes-login-limit";
 
@@ -115,13 +118,13 @@ describe("login rate limit policy", () => {
     assert.equal(first.includes("test-only-session-secret"), false);
 
     for (let attempt = 0; attempt < LOGIN_FAILURE_LIMIT; attempt += 1) {
-      const status = await noteLoginFailure(store, first, now);
+      const status = await reserveLoginAttempt(store, first, now);
       assert.equal(status.limited, false);
     }
     assert.equal((await readLoginLimit(store, first, now)).limited, true);
     assert.equal((await readLoginLimit(store, second, now)).limited, false);
 
-    const blocked = await noteLoginFailure(store, first, now);
+    const blocked = await reserveLoginAttempt(store, first, now);
     assert.equal(blocked.limited, true);
     assert.ok(blocked.retryAfterSeconds >= 1);
     assert.equal(
@@ -134,11 +137,11 @@ describe("login rate limit policy", () => {
   it("fails closed when compare-and-swap keeps conflicting", async () => {
     const store = conflictingStore(LOGIN_WRITE_ATTEMPTS);
     await assert.rejects(
-      () => noteLoginFailure(store, "visitor", 1_700_000_000_000),
+      () => reserveLoginAttempt(store, "visitor", 1_700_000_000_000),
       LoginLimitUnavailable,
     );
     const recovered = conflictingStore(LOGIN_WRITE_ATTEMPTS - 1);
-    const status = await noteLoginFailure(recovered, "visitor", 1_700_000_000_000);
+    const status = await reserveLoginAttempt(recovered, "visitor", 1_700_000_000_000);
     assert.equal(status.limited, false);
     assert.equal(loginLimitStatus({ failures: LOGIN_FAILURE_LIMIT, windowStart: 0 }, 1).limited, true);
   });
@@ -146,7 +149,7 @@ describe("login rate limit policy", () => {
   it("clears one visitor counter and uses the platform client address", async () => {
     const store = memoryStore();
     const key = loginAttemptKey("198.51.100.8", "test-only-session-secret");
-    await noteLoginFailure(store, key, 1_700_000_000_000);
+    await reserveLoginAttempt(store, key, 1_700_000_000_000);
     await clearLoginLimit(store, key);
     assert.equal((await readLoginLimit(store, key, 1_700_000_000_000)).limited, false);
 
@@ -167,20 +170,127 @@ describe("login rate limit policy", () => {
     });
     const now = 1_700_000_000_000;
     for (let attempt = 0; attempt < LOGIN_FAILURE_LIMIT; attempt += 1) {
-      const status = await recordLoginFailure(request, now);
+      const status = await reserveLoginSlot(request, now);
       assert.equal(status.limited, false);
     }
-    assert.equal((await assertLoginAllowed(request, now)).limited, true);
+    assert.equal((await reserveLoginSlot(request, now)).limited, true);
 
     const other = new Request("https://www.yukonbaseball.com/api/minutes/auth", {
       headers: { "x-real-ip": "198.51.100.21" },
     });
-    assert.equal((await assertLoginAllowed(other, now)).limited, false);
-    await clearLoginFailures(request);
-    assert.equal((await assertLoginAllowed(request, now)).limited, false);
+    assert.equal((await reserveLoginSlot(other, now)).limited, false);
+    assert.equal((await reserveLoginSlot(request, now)).limited, true);
+    const renewed = await reserveLoginSlot(request, now + LOGIN_WINDOW_MS);
+    assert.equal(renewed.limited, false);
 
     process.env.VERCEL = "1";
-    await assert.rejects(() => assertLoginAllowed(request, now), LoginLimitUnavailable);
+    let comparisons = 0;
+    try {
+      const slot = await reserveLoginSlot(request, now);
+      if (!slot.limited) comparisons += 1;
+    } catch (error) {
+      assert.equal(error instanceof LoginLimitUnavailable, true);
+    }
+    assert.equal(comparisons, 0);
+  });
+
+  it("allows at most 20 password checks in a 40-request burst", async () => {
+    const now = 1_700_000_000_000;
+    const records = new Map<string, LoginAttemptSnapshot>();
+    const store: LoginAttemptStore = {
+      async read(key) {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        const current = records.get(key) ?? { state: null, version: null };
+        return {
+          state: current.state ? { ...current.state } : null,
+          version: current.version,
+        };
+      },
+      async write(key, state, version) {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        const current = records.get(key) ?? { state: null, version: null };
+        if ((current.version ?? null) !== (version ?? null)) return "conflict";
+        if (state === null) {
+          records.delete(key);
+          return "ok";
+        }
+        records.set(key, {
+          state,
+          version: String(Number(current.version ?? "0") + 1),
+        });
+        return "ok";
+      },
+    };
+
+    async function attempt(key: string, correct: boolean) {
+      try {
+        const slot = await reserveLoginAttempt(store, key, now);
+        if (slot.limited) return { compared: false, status: 429 as const };
+        return { compared: true, status: (correct ? 200 : 401) as 200 | 401 };
+      } catch (error) {
+        assert.equal(error instanceof LoginLimitUnavailable, true);
+        return { compared: false, status: 503 as const };
+      }
+    }
+
+    const [burst, other] = await Promise.all([
+      Promise.all(
+        Array.from({ length: 40 }, (_, index) => attempt("visitor-a", index === 7)),
+      ),
+      Promise.all(Array.from({ length: 5 }, () => attempt("visitor-b", false))),
+    ]);
+    const compared = burst.filter((result) => result.compared);
+    const blocked = burst.filter((result) => result.status === 429);
+    assert.equal(compared.length <= LOGIN_FAILURE_LIMIT, true);
+    assert.equal(compared.length + blocked.length, 40);
+    assert.equal(burst.some((result) => result.status === 503), false);
+    assert.equal(burst.every((result) => result.status !== 200 || result.compared), true);
+    assert.equal(records.get("visitor-a")?.state?.failures, LOGIN_FAILURE_LIMIT);
+    assert.equal(records.get("visitor-b")?.state?.failures, 5);
+    assert.equal(other.every((result) => result.status === 401), true);
+    const again = await reserveLoginAttempt(store, "visitor-a", now);
+    assert.equal(again.limited, true);
+    assert.equal(records.get("visitor-a")?.state?.failures, LOGIN_FAILURE_LIMIT);
+  });
+
+  it("removes only expired counters under auth-rate/v1", async () => {
+    const now = 1_700_000_000_000;
+    const counter = `${"ab".repeat(32)}`;
+    assert.equal(counter.length, 64);
+    assert.equal(isRateCounterPath(`auth-rate/v1/${counter}.json`), true);
+    assert.equal(isRateCounterPath("auth-rate/v1/cursor.json"), false);
+    assert.equal(isRateCounterPath("minutes/notes.pdf"), false);
+    assert.equal(isRateCounterPath("media-library/catalog.json"), false);
+    const selected = selectExpiredRateCounters(
+      [
+        { pathname: `auth-rate/v1/${counter}.json`, uploadedAtMs: now - RATE_RETENTION_MS },
+        {
+          pathname: `auth-rate/v1/${"cd".repeat(32)}.json`,
+          uploadedAtMs: now - 60_000,
+        },
+        { pathname: "minutes/notes.pdf", uploadedAtMs: now - RATE_RETENTION_MS },
+        { pathname: "media-library/catalog.json", uploadedAtMs: now - RATE_RETENTION_MS },
+        { pathname: "media-library/covers/photo.jpg", uploadedAtMs: now - RATE_RETENTION_MS },
+        { pathname: "auth-rate/v1/cursor.json", uploadedAtMs: now - RATE_RETENTION_MS },
+      ],
+      now,
+    );
+    assert.deepEqual(selected.map((blob) => blob.pathname), [`auth-rate/v1/${counter}.json`]);
+
+    rememberEnv();
+    const active = new Request("https://www.yukonbaseball.com/api/minutes/auth", {
+      headers: { "x-real-ip": "198.51.100.30" },
+    });
+    const stale = new Request("https://www.yukonbaseball.com/api/minutes/auth", {
+      headers: { "x-real-ip": "198.51.100.31" },
+    });
+    await reserveLoginSlot(active, now);
+    await reserveLoginSlot(stale, now - LOGIN_WINDOW_MS);
+    assert.equal(rateLimitEntryCountForTests(), 2);
+    await pruneExpiredRateLimits(now);
+    assert.equal(rateLimitEntryCountForTests(), 1);
+    const renewed = await reserveLoginSlot(stale, now);
+    assert.equal(renewed.limited, false);
   });
 
   it("treats a missing blob counter as a new visitor", () => {

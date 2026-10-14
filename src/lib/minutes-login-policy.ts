@@ -2,7 +2,15 @@ import { createHash } from "crypto";
 
 export const LOGIN_FAILURE_LIMIT = 20;
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-export const LOGIN_WRITE_ATTEMPTS = 8;
+// One compare-and-swap round commits a single reservation. A parallel burst
+// needs enough retries to observe the cap instead of stopping early.
+export const LOGIN_WRITE_ATTEMPTS = 24;
+export const RATE_LIMIT_PREFIX = "auth-rate/v1/";
+export const RATE_CURSOR_PATH = "auth-rate/v1/cursor.json";
+export const RATE_PRUNE_LIMIT = 20;
+export const RATE_RETENTION_MS = LOGIN_WINDOW_MS + 60 * 1000;
+
+const RATE_COUNTER_PATH = /^auth-rate\/v1\/[0-9a-f]{64}\.json$/;
 
 export type LoginAttemptState = {
   failures: number;
@@ -84,7 +92,23 @@ export async function readLoginLimit(
   return loginLimitStatus(current.state, now);
 }
 
-export async function noteLoginFailure(
+export function isRateCounterPath(pathname: string) {
+  return RATE_COUNTER_PATH.test(pathname);
+}
+
+export function selectExpiredRateCounters(
+  blobs: { pathname: string; uploadedAtMs: number }[],
+  now: number,
+) {
+  return blobs.filter(
+    (blob) =>
+      isRateCounterPath(blob.pathname) &&
+      Number.isFinite(blob.uploadedAtMs) &&
+      now - blob.uploadedAtMs >= RATE_RETENTION_MS,
+  );
+}
+
+export async function reserveLoginAttempt(
   store: LoginAttemptStore,
   key: string,
   now: number,
@@ -95,7 +119,7 @@ export async function noteLoginFailure(
     if (status.limited) return status;
     const next = nextLoginFailure(current.state, now);
     const result = await store.write(key, next, current.version);
-    if (result === "ok") return loginLimitStatus(current.state, now);
+    if (result === "ok") return { limited: false, retryAfterSeconds: 0 };
   }
   throw new LoginLimitUnavailable();
 }
