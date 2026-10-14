@@ -1,3 +1,4 @@
+import { NewsPhoto } from "@/components/news-photo";
 import { NewsStory } from "@/components/news-story";
 import { buttonVariants } from "@/components/ui/button";
 import { getArticle, articles } from "@/lib/news";
@@ -110,19 +111,34 @@ export default async function NewsArticlePage({
                   : "mt-8 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950"
               }
             >
-              <Image
-                src={article.image.src}
-                alt={article.image.alt}
-                width={article.image.width}
-                height={article.image.height}
-                priority
-                className="h-auto w-full"
-                sizes={
-                  article.image.size === "half"
-                    ? "(max-width: 384px) 100vw, 384px"
-                    : "(max-width: 896px) 100vw, 896px"
-                }
-              />
+              {article.image.expand ? (
+                <NewsPhoto
+                  src={article.image.src}
+                  alt={article.image.alt}
+                  width={article.image.width}
+                  height={article.image.height}
+                  priority
+                  sizes={
+                    article.image.size === "half"
+                      ? "(max-width: 384px) 100vw, 384px"
+                      : "(max-width: 896px) 100vw, 896px"
+                  }
+                />
+              ) : (
+                <Image
+                  src={article.image.src}
+                  alt={article.image.alt}
+                  width={article.image.width}
+                  height={article.image.height}
+                  priority
+                  className="h-auto w-full"
+                  sizes={
+                    article.image.size === "half"
+                      ? "(max-width: 384px) 100vw, 384px"
+                      : "(max-width: 896px) 100vw, 896px"
+                  }
+                />
+              )}
             </figure>
           ) : null}
           {article.blocks ? (

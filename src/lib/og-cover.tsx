@@ -21,6 +21,7 @@ const articleOgSlugs = new Set([
   "yukon-millers-release-2027-schedule",
   "gunner-fletcher-southwestern-christian",
   "czech-festival-parade-2026",
+  "yukon-baseball-fall-camp",
 ]);
 
 const articleOgFiles: Record<string, string> = {

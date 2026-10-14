@@ -1,3 +1,4 @@
+import { NewsPhoto } from "@/components/news-photo";
 import type { ArticleBlock } from "@/lib/news-blocks";
 import Image from "next/image";
 
@@ -153,18 +154,32 @@ export function NewsStory({ blocks }: { blocks: ArticleBlock[] }) {
                   : "overflow-hidden rounded-2xl border border-white/10 bg-zinc-950"
               }
             >
-              <Image
-                src={block.src}
-                alt={block.alt}
-                width={block.width}
-                height={block.height}
-                className="h-auto w-full"
-                sizes={
-                  compact
-                    ? "(max-width: 640px) 16rem, 18rem"
-                    : "(max-width: 896px) 100vw, 896px"
-                }
-              />
+              {block.expand ? (
+                <NewsPhoto
+                  src={block.src}
+                  alt={block.alt}
+                  width={block.width}
+                  height={block.height}
+                  sizes={
+                    compact
+                      ? "(max-width: 640px) 16rem, 18rem"
+                      : "(max-width: 896px) 100vw, 896px"
+                  }
+                />
+              ) : (
+                <Image
+                  src={block.src}
+                  alt={block.alt}
+                  width={block.width}
+                  height={block.height}
+                  className="h-auto w-full"
+                  sizes={
+                    compact
+                      ? "(max-width: 640px) 16rem, 18rem"
+                      : "(max-width: 896px) 100vw, 896px"
+                  }
+                />
+              )}
               {block.caption ? (
                 <figcaption className="border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
                   {block.caption}
@@ -229,14 +244,24 @@ export function NewsStory({ blocks }: { blocks: ArticleBlock[] }) {
                   key={photo.src}
                   className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950"
                 >
-                  <Image
-                    src={photo.src}
-                    alt={photo.alt}
-                    width={photo.width}
-                    height={photo.height}
-                    className="h-auto w-full"
-                    sizes="(max-width: 768px) 100vw, 448px"
-                  />
+                  {block.expand ? (
+                    <NewsPhoto
+                      src={photo.src}
+                      alt={photo.alt}
+                      width={photo.width}
+                      height={photo.height}
+                      sizes="(max-width: 768px) 100vw, 448px"
+                    />
+                  ) : (
+                    <Image
+                      src={photo.src}
+                      alt={photo.alt}
+                      width={photo.width}
+                      height={photo.height}
+                      className="h-auto w-full"
+                      sizes="(max-width: 768px) 100vw, 448px"
+                    />
+                  )}
                   {photo.caption ? (
                     <figcaption className="border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
                       {photo.caption}

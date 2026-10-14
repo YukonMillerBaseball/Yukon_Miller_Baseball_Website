@@ -30,9 +30,11 @@ export type ArticleBlock =
       width: number;
       height: number;
       size?: "card";
+      expand?: boolean;
     }
   | {
       type: "gallery";
+      expand?: boolean;
       photos: {
         src: string;
         alt: string;

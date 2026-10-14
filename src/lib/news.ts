@@ -8,6 +8,7 @@ import { hofBanquetStory } from "@/lib/news-hof-banquet";
 import { joeLytleStory } from "@/lib/news-joe-lytle";
 import { schedule2027Story } from "@/lib/news-2027-schedule";
 import { czechFestivalStory } from "@/lib/news-czech-festival";
+import { fallCampStory } from "@/lib/news-fall-camp";
 import { gunnerFletcherStory } from "@/lib/news-gunner-fletcher";
 
 export type ArticleImageVariant = {
@@ -25,6 +26,7 @@ export type ArticleImage = {
   focus?: string;
   size?: "half" | "feature";
   hero?: boolean;
+  expand?: boolean;
   card?: ArticleImageVariant;
   banner?: ArticleImageVariant;
 };
@@ -41,6 +43,7 @@ export type Article = {
 };
 
 export const articles: Article[] = [
+  fallCampStory,
   czechFestivalStory,
   gunnerFletcherStory,
   schedule2027Story,
