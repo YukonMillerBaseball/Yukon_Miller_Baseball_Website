@@ -509,7 +509,7 @@ export function MediaLibrary({
               "h-10 border-white/15 px-4 uppercase",
             )}
           >
-            Lock
+            Log out
           </button>
         </div>
       </div>
