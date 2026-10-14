@@ -56,12 +56,41 @@ export type CoverFrame = {
   fit: CoverFit;
   x: number;
   y: number;
+  /** 100 matches Fill. Lower values show more of the photo. Higher values crop closer. */
+  zoom: number;
 };
 
-export const DEFAULT_COVER_FRAME: CoverFrame = { fit: "cover", x: 50, y: 50 };
+export const COVER_ZOOM_MIN = 25;
+export const COVER_ZOOM_MAX = 200;
+export const DEFAULT_COVER_FRAME: CoverFrame = { fit: "cover", x: 50, y: 50, zoom: 100 };
 
 export function isDefaultCoverFrame(frame: CoverFrame) {
-  return frame.fit === DEFAULT_COVER_FRAME.fit && frame.x === DEFAULT_COVER_FRAME.x && frame.y === DEFAULT_COVER_FRAME.y;
+  return (
+    frame.fit === DEFAULT_COVER_FRAME.fit &&
+    frame.x === DEFAULT_COVER_FRAME.x &&
+    frame.y === DEFAULT_COVER_FRAME.y &&
+    frame.zoom === DEFAULT_COVER_FRAME.zoom
+  );
+}
+
+/** Pixel box for a framed cover. Zoom 100 with Fill matches object-fit: cover. */
+export function coverFrameLayout(
+  box: { width: number; height: number },
+  image: { width: number; height: number },
+  frame: CoverFrame,
+) {
+  if (box.width <= 0 || box.height <= 0 || image.width <= 0 || image.height <= 0) return null;
+  const cover = Math.max(box.width / image.width, box.height / image.height);
+  const contain = Math.min(box.width / image.width, box.height / image.height);
+  const scale = frame.fit === "cover" ? cover * (frame.zoom / 100) : contain;
+  const width = image.width * scale;
+  const height = image.height * scale;
+  return {
+    width,
+    height,
+    left: (frame.x / 100) * (box.width - width),
+    top: (frame.y / 100) * (box.height - height),
+  };
 }
 
 export type MediaCollection = {
@@ -77,6 +106,8 @@ export type MediaCollection = {
   coverFit?: CoverFit;
   coverX?: number;
   coverY?: number;
+  /** Omitted at 100. Only changes the card while Fill is selected. */
+  coverZoom?: number;
   order: number;
   /** Set once when a collection is created. Missing on records saved before this field existed. */
   createdAt?: string;
@@ -109,6 +140,7 @@ export type MediaCard = {
   coverFit: CoverFit;
   coverX: number;
   coverY: number;
+  coverZoom: number;
   order: number;
   createdAt: string | null;
 };
@@ -271,10 +303,20 @@ function parseSubmittedAxis(value: unknown) {
 }
 
 /** Reads the cover frame submitted with a collection form. Blank values keep the centered fill. */
+function parseSubmittedZoom(value: unknown) {
+  if (value === undefined || value === null || value === "") return DEFAULT_COVER_FRAME.zoom;
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (!Number.isFinite(number)) return null;
+  const rounded = Math.round(number);
+  if (rounded < COVER_ZOOM_MIN || rounded > COVER_ZOOM_MAX) return null;
+  return rounded;
+}
+
 export function parseCoverFrame(value: {
   coverFit?: unknown;
   coverX?: unknown;
   coverY?: unknown;
+  coverZoom?: unknown;
 }): CoverFrame | { error: string } {
   const fitValue = value.coverFit;
   const fit =
@@ -287,7 +329,9 @@ export function parseCoverFrame(value: {
   const x = parseSubmittedAxis(value.coverX);
   const y = parseSubmittedAxis(value.coverY);
   if (x === null || y === null) return { error: "Choose a cover position from 0 to 100." };
-  return { fit, x, y };
+  const zoom = parseSubmittedZoom(value.coverZoom);
+  if (zoom === null) return { error: `Choose a zoom from ${COVER_ZOOM_MIN} to ${COVER_ZOOM_MAX}.` };
+  return { fit, x, y, zoom };
 }
 
 function storedAxis(value: unknown) {
@@ -297,9 +341,21 @@ function storedAxis(value: unknown) {
   return rounded;
 }
 
+function storedZoom(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const rounded = Math.round(value);
+  if (rounded < COVER_ZOOM_MIN || rounded > COVER_ZOOM_MAX) return null;
+  return rounded;
+}
+
 /** Optional catalog fields. Invalid or default frames are omitted so older catalogs stay unchanged. */
 function readStoredCoverFrame(entry: Record<string, unknown>): CoverFrame | undefined {
-  if (entry.coverFit === undefined && entry.coverX === undefined && entry.coverY === undefined) {
+  if (
+    entry.coverFit === undefined &&
+    entry.coverX === undefined &&
+    entry.coverY === undefined &&
+    entry.coverZoom === undefined
+  ) {
     return undefined;
   }
   const fit =
@@ -310,9 +366,19 @@ function readStoredCoverFrame(entry: Record<string, unknown>): CoverFrame | unde
         : null;
   const x = entry.coverX === undefined ? 50 : storedAxis(entry.coverX);
   const y = entry.coverY === undefined ? 50 : storedAxis(entry.coverY);
+  const zoom = entry.coverZoom === undefined ? 100 : (storedZoom(entry.coverZoom) ?? 100);
   if (!fit || x === null || y === null) return undefined;
-  const frame = { fit, x, y } satisfies CoverFrame;
+  const frame = { fit, x, y, zoom } satisfies CoverFrame;
   return isDefaultCoverFrame(frame) ? undefined : frame;
+}
+
+function storedCoverFields(frame: CoverFrame): Pick<MediaCollection, "coverFit" | "coverX" | "coverY" | "coverZoom"> {
+  return {
+    ...(frame.fit === "contain" ? { coverFit: "contain" as const } : {}),
+    ...(frame.x !== DEFAULT_COVER_FRAME.x ? { coverX: frame.x } : {}),
+    ...(frame.y !== DEFAULT_COVER_FRAME.y ? { coverY: frame.y } : {}),
+    ...(frame.zoom !== DEFAULT_COVER_FRAME.zoom ? { coverZoom: frame.zoom } : {}),
+  };
 }
 
 function withoutCoverFrame(item: MediaCollection): MediaCollection {
@@ -334,7 +400,7 @@ function withoutCoverFrame(item: MediaCollection): MediaCollection {
 function applyCoverFrame(item: MediaCollection, frame: CoverFrame): MediaCollection {
   const rest = withoutCoverFrame(item);
   if (!rest.coverFile || isDefaultCoverFrame(frame)) return rest;
-  return { ...rest, coverFit: frame.fit, coverX: frame.x, coverY: frame.y };
+  return { ...rest, ...storedCoverFields(frame) };
 }
 
 export function inspectCover(bytes: Uint8Array): {
@@ -514,9 +580,7 @@ export function parseCatalog(value: unknown): MediaCatalog | null {
       id: entry.id,
       ...parsed.input,
       coverFile: entry.coverFile,
-      ...(entry.coverFile && coverFrame
-        ? { coverFit: coverFrame.fit, coverX: coverFrame.x, coverY: coverFrame.y }
-        : {}),
+      ...(entry.coverFile && coverFrame ? storedCoverFields(coverFrame) : {}),
       order: entry.order,
       ...(createdAt ? { createdAt } : {}),
       updatedAt: entry.updatedAt,
@@ -538,6 +602,7 @@ export function toMediaCards(catalog: MediaCatalog): MediaCard[] {
     coverFit: item.coverFile && item.coverFit === "contain" ? "contain" : "cover",
     coverX: item.coverFile ? (item.coverX ?? 50) : 50,
     coverY: item.coverFile ? (item.coverY ?? 50) : 50,
+    coverZoom: item.coverFile ? (item.coverZoom ?? 100) : 100,
     order: item.order,
     createdAt: item.createdAt ?? null,
   }));

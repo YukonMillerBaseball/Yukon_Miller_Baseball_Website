@@ -11,9 +11,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  COVER_ZOOM_MAX,
+  COVER_ZOOM_MIN,
   MEDIA_SEASONS,
   MEDIA_CONFLICT_MESSAGE,
   browseSeasons,
+  coverFrameLayout,
   defaultBrowseSeason,
   mediaLinkLabel,
   parseMediaUrl,
@@ -55,23 +58,96 @@ function coverFrameStyle(fit: CoverFit, x: number, y: number): CSSProperties {
   };
 }
 
+function FramedPhoto({
+  src,
+  fit,
+  x,
+  y,
+  zoom,
+  lazy,
+  onError,
+}: {
+  src: string;
+  fit: CoverFit;
+  x: number;
+  y: number;
+  zoom: number;
+  lazy?: boolean;
+  onError?: () => void;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
+  const zoomed = fit === "cover" && zoom !== 100;
+  const layout =
+    zoomed && natural && box.width > 0 && box.height > 0
+      ? coverFrameLayout(box, natural, { fit, x, y, zoom })
+      : null;
+
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !zoomed) return;
+    const measure = () => {
+      const rect = frame.getBoundingClientRect();
+      setBox((current) =>
+        current.width === rect.width && current.height === rect.height
+          ? current
+          : { width: rect.width, height: rect.height },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [zoomed]);
+
+  return (
+    <div ref={frameRef} className="absolute inset-0">
+      {/* Authenticated covers and local previews are not next/image sources. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        draggable={false}
+        className={cn("pointer-events-none select-none", layout ? "absolute max-w-none" : "size-full")}
+        style={
+          layout
+            ? { width: layout.width, height: layout.height, left: layout.left, top: layout.top }
+            : { ...coverFrameStyle(fit, x, y), visibility: zoomed ? "hidden" : "visible" }
+        }
+        loading={lazy ? "lazy" : undefined}
+        decoding="async"
+        onLoad={(event) => {
+          const image = event.currentTarget;
+          if (image.naturalWidth > 0) {
+            setNatural({ width: image.naturalWidth, height: image.naturalHeight });
+          }
+        }}
+        onError={onError}
+      />
+    </div>
+  );
+}
+
 function Cover({
   season,
   url,
   fit,
   x,
   y,
+  zoom,
 }: {
   season: string;
   url: string | null;
   fit: CoverFit;
   x: number;
   y: number;
+  zoom: number;
 }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
-      <div className="flex h-full items-end bg-zinc-900 p-4">
+      <div className="absolute inset-0 flex items-end bg-zinc-900 p-4">
         <p className="font-heading text-lg tracking-wide text-white/80 uppercase">
           {season}
         </p>
@@ -79,15 +155,13 @@ function Cover({
     );
   }
   return (
-    // Authenticated cover routes cannot be optimized by next/image.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <FramedPhoto
       src={url}
-      alt=""
-      className="size-full"
-      style={coverFrameStyle(fit, x, y)}
-      loading="lazy"
-      decoding="async"
+      fit={fit}
+      x={x}
+      y={y}
+      zoom={zoom}
+      lazy
       onError={() => setFailed(true)}
     />
   );
@@ -280,6 +354,10 @@ function clampPercent(value: number) {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
+function clampZoom(value: number) {
+  return Math.min(COVER_ZOOM_MAX, Math.max(COVER_ZOOM_MIN, Math.round(value)));
+}
+
 function frameButtonClass(active = false) {
   return cn(
     "h-9 rounded-lg border px-3 text-xs tracking-[0.14em] uppercase",
@@ -294,6 +372,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
   const [fit, setFit] = useState<CoverFit>(initial?.coverFit ?? "cover");
   const [x, setX] = useState(initial?.coverX ?? 50);
   const [y, setY] = useState(initial?.coverY ?? 50);
+  const [zoom, setZoom] = useState(initial?.coverZoom ?? 100);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [removeCover, setRemoveCover] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -335,6 +414,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
     setFit("cover");
     setX(50);
     setY(50);
+    setZoom(100);
   }
 
   function onFramePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -449,6 +529,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
       <input type="hidden" name="coverFit" value={fit} />
       <input type="hidden" name="coverX" value={x} />
       <input type="hidden" name="coverY" value={y} />
+      <input type="hidden" name="coverZoom" value={zoom} />
       {shownUrl ? (
         <div>
           <p className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
@@ -459,7 +540,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
             role="application"
             tabIndex={0}
             aria-label="Cover position. Drag the photo or use the arrow keys to move it."
-            className="mt-2 aspect-video cursor-grab touch-none overflow-hidden rounded-xl bg-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] active:cursor-grabbing"
+            className="relative mt-2 aspect-video cursor-grab touch-none overflow-hidden rounded-xl bg-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] active:cursor-grabbing"
             onPointerDown={onFramePointerDown}
             onPointerMove={onFramePointerMove}
             onPointerUp={onFramePointerEnd}
@@ -488,20 +569,18 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
                 </p>
               </div>
             ) : (
-              // Local previews and authenticated covers are not next/image sources.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <FramedPhoto
                 src={shownUrl}
-                alt=""
-                draggable={false}
-                className="pointer-events-none size-full select-none"
-                style={coverFrameStyle(fit, x, y)}
+                fit={fit}
+                x={x}
+                y={y}
+                zoom={zoom}
                 onError={() => setPreviewFailed(true)}
               />
             )}
           </div>
           <p className="mt-2 text-xs leading-5 text-zinc-500">
-            Drag the photo to choose what the card shows. Center puts it in the middle. Fill crops it to the card. Fit shows the whole photo.
+            Drag the photo to choose what the card shows. With Fill selected, zoom out to show more of the photo or zoom in to crop closer. Center puts it in the middle. Fit shows the whole photo.
           </p>
           <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Cover framing">
             <button type="button" className={frameButtonClass()} onClick={() => { setX(50); setY(50); }}>
@@ -524,6 +603,44 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
               Fit
             </button>
           </div>
+          {fit === "cover" ? (
+            <div className="mt-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
+                  Zoom
+                </span>
+                <span className="text-xs text-zinc-400">{zoom}%</span>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Zoom out"
+                  className={frameButtonClass()}
+                  onClick={() => setZoom((value) => clampZoom(value - 10))}
+                >
+                  −
+                </button>
+                <input
+                  type="range"
+                  min={COVER_ZOOM_MIN}
+                  max={COVER_ZOOM_MAX}
+                  step={5}
+                  value={zoom}
+                  aria-label="Cover zoom"
+                  onChange={(event) => setZoom(clampZoom(Number(event.target.value)))}
+                  className="h-11 min-w-0 flex-1 accent-[#c8102e]"
+                />
+                <button
+                  type="button"
+                  aria-label="Zoom in"
+                  className={frameButtonClass()}
+                  onClick={() => setZoom((value) => clampZoom(value + 10))}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className="text-xs leading-5 text-zinc-500">
@@ -867,13 +984,14 @@ export function MediaLibrary({
           const action = mediaLinkLabel(item.linkKind);
           const body = (
             <>
-              <div className="aspect-video overflow-hidden rounded-t-xl bg-zinc-900">
+              <div className="relative aspect-video overflow-hidden rounded-t-xl bg-zinc-900">
                 <Cover
                   season={item.season}
                   url={item.coverUrl}
                   fit={item.coverFit}
                   x={item.coverX}
                   y={item.coverY}
+                  zoom={item.coverZoom}
                 />
               </div>
               <div className="px-2.5 py-2">

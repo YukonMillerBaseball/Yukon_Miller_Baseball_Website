@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     coverFit: field(form, "coverFit"),
     coverX: field(form, "coverX"),
     coverY: field(form, "coverY"),
+    coverZoom: field(form, "coverZoom"),
   });
   if ("error" in coverFrame) {
     return NextResponse.json({ error: coverFrame.error }, { status: 400 });
@@ -207,6 +208,7 @@ export async function PATCH(request: Request) {
     coverFit: field(form, "coverFit"),
     coverX: field(form, "coverX"),
     coverY: field(form, "coverY"),
+    coverZoom: field(form, "coverZoom"),
   });
   if ("error" in coverFrame) {
     return NextResponse.json({ error: coverFrame.error }, { status: 400 });
