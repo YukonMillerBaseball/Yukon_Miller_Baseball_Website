@@ -43,8 +43,9 @@ type LibraryPayload = {
   expired?: boolean;
 };
 
+// 16px on phones so iOS Safari does not zoom the page when a field is focused.
 const fieldClass =
-  "mt-2 h-11 w-full rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-red-500";
+  "mt-2 h-11 w-full min-w-0 max-w-full rounded-lg border border-white/15 bg-black px-3 text-base text-white outline-none focus:border-red-500 sm:text-sm";
 
 function safeHref(url: string) {
   const parsed = parseMediaUrl(url);
@@ -109,7 +110,10 @@ function FramedPhoto({
         src={src}
         alt=""
         draggable={false}
-        className={cn("pointer-events-none select-none", layout ? "absolute max-w-none" : "size-full")}
+        className={cn(
+          "pointer-events-none select-none",
+          layout ? "absolute max-w-none" : "size-full min-w-0",
+        )}
         style={
           layout
             ? { width: layout.width, height: layout.height, left: layout.left, top: layout.top }
@@ -520,7 +524,7 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
           onChange={onCoverFile}
-          className="mt-2 block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:tracking-[0.14em] file:text-white file:uppercase"
+          className="mt-2 block w-full min-w-0 max-w-full text-base text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:tracking-[0.14em] file:text-white file:uppercase sm:text-sm"
         />
         <span className="mt-2 block text-xs leading-5 text-zinc-500">
           Large photos are resized before upload. The original stays on your device.
@@ -859,12 +863,12 @@ export function MediaLibrary({
 
   return (
     <div className="min-w-0 max-w-full">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="min-w-0 max-w-2xl text-sm leading-6 break-words text-zinc-400">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <p className="max-w-2xl text-sm leading-6 break-words text-zinc-400 sm:min-w-0">
           These links open in a new tab. Google Photos and other hosts keep their
           own sharing settings.
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto">
           {canAdmin && !libraryUnavailable ? (
             <button
               type="button"
@@ -977,7 +981,7 @@ export function MediaLibrary({
         </p>
       ) : null}
 
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+      <div className="mt-3 grid w-full min-w-0 grid-cols-2 gap-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
         {visible.map((item) => {
           const href = safeHref(item.url);
           const index = ordered.findIndex((entry) => entry.id === item.id);

@@ -71,7 +71,7 @@ export function MinutesLogin({
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 sm:p-8"
+      className="mx-auto w-full min-w-0 max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-4 sm:p-8"
     >
       <h2 className="font-heading text-2xl tracking-wide text-white uppercase">
         Enter password
@@ -81,11 +81,12 @@ export function MinutesLogin({
         <span className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
           Password
         </span>
+        {/* 16px on phones so iOS Safari does not zoom and clip the page. */}
         <input
           type="password"
           name="password"
           autoComplete="current-password"
-          className="mt-2 h-11 w-full rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-red-500"
+          className="mt-2 h-11 w-full min-w-0 max-w-full rounded-lg border border-white/15 bg-black px-3 text-base text-white outline-none focus:border-red-500 sm:h-10 sm:text-sm"
           required
         />
       </label>
