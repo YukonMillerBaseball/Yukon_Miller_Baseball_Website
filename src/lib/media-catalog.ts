@@ -2,7 +2,7 @@ export const MEDIA_CATALOG_PATH = "media-library/catalog.json";
 export const MEDIA_COVER_PREFIX = "media-library/covers/";
 export const MEDIA_CONFLICT_MESSAGE =
   "The library changed. Reload and try again.";
-export const MAX_MEDIA_COLLECTIONS = 200;
+export const MAX_MEDIA_COLLECTIONS = 1000;
 export const MAX_COVER_BYTES = 2 * 1024 * 1024;
 export const MAX_TITLE_LENGTH = 120;
 export const MAX_DESCRIPTION_LENGTH = 500;
@@ -59,6 +59,8 @@ export type MediaCollection = {
   linkKind: MediaLinkKind;
   coverFile: string | null;
   order: number;
+  /** Set once when a collection is created. Missing on records saved before this field existed. */
+  createdAt?: string;
   updatedAt: string;
 };
 
@@ -86,6 +88,7 @@ export type MediaCard = {
   linkKind: MediaLinkKind;
   coverUrl: string | null;
   order: number;
+  createdAt: string | null;
 };
 
 export class MediaCatalogConflict extends Error {
@@ -101,8 +104,60 @@ export function emptyCatalog(): MediaCatalog {
 
 export function mediaLinkLabel(kind: MediaLinkKind) {
   if (kind === "photos") return "View Photos";
-  if (kind === "video") return "Watch Video";
+  if (kind === "video") return "View Video";
   return "Open Collection";
+}
+
+export type MediaSort = "newest" | "oldest" | "title-asc" | "title-desc" | "custom";
+
+export function browseSeasons(seasons: Iterable<string>) {
+  return [...new Set(seasons)].filter((season) => season.trim()).sort(compareSeasons);
+}
+
+/** Current school year when that season has collections; otherwise the newest season in use. */
+export function defaultBrowseSeason(seasons: Iterable<string>, now = new Date()) {
+  const options = browseSeasons(seasons);
+  if (options.length === 0) return "all";
+  const current = defaultMediaSeason(now);
+  return options.includes(current) ? current : options[0];
+}
+
+function createdTime(value: string | null | undefined) {
+  if (!value) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
+}
+
+export function sortMediaCards(items: MediaCard[], sort: MediaSort) {
+  const ordered = [...items].sort(
+    (left, right) => left.order - right.order || left.title.localeCompare(right.title),
+  );
+  if (sort === "custom") return ordered;
+  if (sort === "title-asc" || sort === "title-desc") {
+    const direction = sort === "title-asc" ? 1 : -1;
+    return ordered.slice().sort((left, right) => {
+      const byTitle = left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+      if (byTitle !== 0) return byTitle * direction;
+      return left.order - right.order;
+    });
+  }
+  const dated: MediaCard[] = [];
+  const undated: MediaCard[] = [];
+  for (const item of ordered) {
+    if (createdTime(item.createdAt) === null) undated.push(item);
+    else dated.push(item);
+  }
+  dated.sort((left, right) => {
+    const difference =
+      sort === "newest"
+        ? createdTime(right.createdAt)! - createdTime(left.createdAt)!
+        : createdTime(left.createdAt)! - createdTime(right.createdAt)!;
+    if (difference !== 0) return difference;
+    return left.order - right.order;
+  });
+  // Records saved before createdAt existed are older than every timestamped record.
+  // Their relative order stays as stored. No historical dates are invented.
+  return sort === "oldest" ? [...undated, ...dated] : [...dated, ...undated];
 }
 
 export function mediaCoverUrl(coverFile: string) {
@@ -232,7 +287,7 @@ export function addCollection(
 ) {
   assertVersion(catalog, expectedVersion);
   if (catalog.items.length >= MAX_MEDIA_COLLECTIONS) {
-    return { error: "The library can hold 200 collections." } as const;
+    return { error: `The library can hold ${MAX_MEDIA_COLLECTIONS} collections.` } as const;
   }
   const order = catalog.items.reduce((max, item) => Math.max(max, item.order), -1) + 1;
   const item: MediaCollection = {
@@ -240,6 +295,7 @@ export function addCollection(
     ...input,
     coverFile,
     order,
+    createdAt: now,
     updatedAt: now,
   };
   return { catalog: nextCatalog(catalog, [...catalog.items, item]) };
@@ -267,6 +323,7 @@ export function editCollection(
           ...input,
           category: input.category || current.category,
           coverFile: nextCover,
+          createdAt: current.createdAt,
           updatedAt: now,
         }
       : item,
@@ -320,6 +377,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function readCreatedAt(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  if (!text || text.length > 40) return undefined;
+  return text;
+}
+
 export function parseCatalog(value: unknown): MediaCatalog | null {
   if (!isRecord(value)) return null;
   const version = parseVersion(value.version);
@@ -338,11 +402,13 @@ export function parseCatalog(value: unknown): MediaCatalog | null {
     if (typeof entry.coverFile === "string" && !isSafeCoverName(entry.coverFile)) return null;
     if (typeof entry.order !== "number" || !Number.isInteger(entry.order)) return null;
     if (typeof entry.updatedAt !== "string" || entry.updatedAt.length > 40) return null;
+    const createdAt = readCreatedAt(entry.createdAt);
     items.push({
       id: entry.id,
       ...parsed.input,
       coverFile: entry.coverFile,
       order: entry.order,
+      ...(createdAt ? { createdAt } : {}),
       updatedAt: entry.updatedAt,
     });
   }
@@ -360,5 +426,6 @@ export function toMediaCards(catalog: MediaCatalog): MediaCard[] {
     linkKind: item.linkKind,
     coverUrl: item.coverFile ? mediaCoverUrl(item.coverFile) : null,
     order: item.order,
+    createdAt: item.createdAt ?? null,
   }));
 }

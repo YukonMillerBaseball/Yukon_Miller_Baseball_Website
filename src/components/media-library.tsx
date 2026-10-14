@@ -13,18 +13,21 @@ import {
 import {
   MEDIA_SEASONS,
   MEDIA_CONFLICT_MESSAGE,
-  compareSeasons,
-  isListedMediaSeason,
+  browseSeasons,
+  defaultBrowseSeason,
   mediaLinkLabel,
   parseMediaUrl,
   selectedMediaSeason,
+  sortMediaCards,
   type MediaCard,
+  type MediaSort,
 } from "@/lib/media-catalog";
 import { publishMinutesLock } from "@/lib/minutes-session";
 import { CoverOptimizeError, optimizeCoverImage } from "@/lib/optimize-cover";
 import { cn } from "@/lib/utils";
+import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 type LibraryPayload = {
   version?: number;
@@ -60,47 +63,133 @@ function Cover({ season, url }: { season: string; url: string | null }) {
     <img
       src={url}
       alt=""
-      className="size-full object-cover"
+      className="size-full object-cover object-center"
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
     />
   );
 }
 
-function FilterRow({
-  label,
-  value,
-  options,
-  onChange,
+const controlClass =
+  "h-11 min-w-0 rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-[#c8102e]";
+
+const labelClass = "shrink-0 text-[0.62rem] tracking-[0.18em] text-zinc-500 uppercase";
+
+function CollectionMenu({
+  open,
+  pending,
+  canReorder,
+  reorderHint,
+  canMoveUp,
+  canMoveDown,
+  onToggle,
+  onClose,
+  onEdit,
+  onDelete,
+  onMove,
 }: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
+  open: boolean;
+  pending: boolean;
+  canReorder: boolean;
+  reorderHint: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMove: (direction: -1 | 1) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const [placement, setPlacement] = useState<"down" | "up">("down");
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect) {
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setPlacement(spaceBelow < 240 && rect.top > spaceBelow ? "up" : "down");
+    }
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) onCloseRef.current();
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCloseRef.current();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const itemClass =
+    "flex min-h-11 w-full items-center px-3 text-left text-sm text-white hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none disabled:cursor-not-allowed disabled:text-zinc-600 disabled:hover:bg-transparent";
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[0.62rem] tracking-[0.18em] text-zinc-500 uppercase">
-        {label}
-      </span>
-      {["all", ...options].map((option) => {
-        const selected = value === option;
-        return (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-[0.68rem] tracking-[0.14em] uppercase",
-              selected
-                ? "border-[#c8102e] bg-[#c8102e] text-white"
-                : "border-white/15 text-zinc-400 hover:text-white",
-            )}
-          >
-            {option === "all" ? "All" : option}
+    <div ref={rootRef} className="absolute top-2 right-2 z-20">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Collection actions"
+        onClick={onToggle}
+        className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white outline-none hover:border-white/30 focus-visible:ring-2 focus-visible:ring-[#c8102e]"
+      >
+        <MoreHorizontal className="size-5" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Collection actions"
+          className={cn(
+            "absolute right-0 z-30 max-h-[70vh] w-52 overflow-y-auto rounded-xl border border-white/10 bg-zinc-950 py-1 shadow-xl",
+            placement === "up" ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
+          <button type="button" role="menuitem" className={itemClass} onClick={onEdit}>
+            Edit collection
           </button>
-        );
-      })}
+          {reorderHint ? (
+            <p className="px-3 py-2 text-[0.65rem] leading-4 tracking-[0.08em] text-zinc-500 uppercase">
+              {reorderHint}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClass}
+            disabled={pending || !canReorder || !canMoveUp}
+            onClick={() => onMove(-1)}
+          >
+            Move up
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClass}
+            disabled={pending || !canReorder || !canMoveDown}
+            onClick={() => onMove(1)}
+          >
+            Move down
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={cn(itemClass, "text-red-400 disabled:text-zinc-600")}
+            onClick={onDelete}
+          >
+            Delete collection
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -213,7 +302,10 @@ export function MediaLibrary({
   const endSession = useEndMinutesSession();
   const [version, setVersion] = useState(initialVersion);
   const [items, setItems] = useState(initialItems);
-  const [season, setSeason] = useState("all");
+  const [season, setSeason] = useState(() => defaultBrowseSeason(initialItems.map((item) => item.season)));
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<MediaSort>("newest");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<MediaCard | null>(null);
   const [adding, setAdding] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -229,18 +321,26 @@ export function MediaLibrary({
     [items],
   );
   const seasons = useMemo(
-    () =>
-      [...new Set(ordered.map((item) => item.season))]
-        .filter(isListedMediaSeason)
-        .sort(compareSeasons),
+    () => browseSeasons(ordered.map((item) => item.season)),
     [ordered],
   );
-  const seasonFilter = season !== "all" && !seasons.includes(season) ? "all" : season;
-  const visible = ordered.filter((item) => {
-    if (seasonFilter !== "all" && item.season !== seasonFilter) return false;
-    return true;
-  });
-  const filtering = seasonFilter !== "all";
+  const seasonFilter =
+    season !== "all" && !seasons.includes(season) ? defaultBrowseSeason(seasons) : season;
+  const query = search.trim().toLowerCase();
+  const visible = useMemo(() => {
+    const matched = ordered.filter((item) => {
+      if (seasonFilter !== "all" && item.season !== seasonFilter) return false;
+      if (!query) return true;
+      return `${item.title}\n${item.description}`.toLowerCase().includes(query);
+    });
+    return sortMediaCards(matched, sort);
+  }, [ordered, query, seasonFilter, sort]);
+  const canReorder = sort === "custom" && seasonFilter === "all" && query.length === 0;
+  const reorderHint = canReorder
+    ? ""
+    : sort !== "custom"
+      ? "Switch to custom order to rearrange."
+      : "Clear the season and search to rearrange.";
 
   function applyPayload(data: LibraryPayload, response: Response) {
     if (response.status === 401) {
@@ -436,13 +536,53 @@ export function MediaLibrary({
       ) : null}
 
       {!libraryUnavailable && ordered.length > 0 ? (
-        <div className="mt-6 space-y-3">
-          <FilterRow
-            label="Season"
-            value={seasonFilter}
-            options={seasons}
-            onChange={setSeason}
-          />
+        <div className="mt-6 grid gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search collections..."
+              aria-label="Search collections"
+              className={cn(controlClass, "w-full sm:max-w-md")}
+            />
+            <p className={labelClass} aria-live="polite">
+              {visible.length} {visible.length === 1 ? "collection" : "collections"}
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:flex-wrap">
+            <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+              <span className={labelClass}>Season</span>
+              <select
+                value={seasonFilter}
+                onChange={(event) => setSeason(event.target.value)}
+                aria-label="Season"
+                className={cn(controlClass, "w-full")}
+              >
+                <option value="all">All seasons</option>
+                {seasons.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+              <span className={labelClass}>Sort by</span>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as MediaSort)}
+                aria-label="Sort by"
+                className={cn(controlClass, "w-full")}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="title-asc">Title A-Z</option>
+                <option value="title-desc">Title Z-A</option>
+                <option value="custom">Custom order</option>
+              </select>
+            </label>
+          </div>
         </div>
       ) : null}
 
@@ -456,101 +596,78 @@ export function MediaLibrary({
       ) : null}
 
       {!libraryUnavailable && ordered.length > 0 && visible.length === 0 ? (
-        <p className="mt-8 text-sm text-zinc-400">No collections match these filters.</p>
+        <p className="mt-8 text-sm text-zinc-400">
+          {query ? "No collections match your search." : "No collections match these filters."}
+        </p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visible.map((item) => {
           const href = safeHref(item.url);
           const index = ordered.findIndex((entry) => entry.id === item.id);
-          return (
-            <article
-              key={item.id}
-              className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-950"
-            >
-              <div className="aspect-[16/10]">
+          const action = mediaLinkLabel(item.linkKind);
+          const body = (
+            <>
+              <div className="aspect-video overflow-hidden bg-zinc-900">
                 <Cover season={item.season} url={item.coverUrl} />
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <h2 className="font-heading mt-2 text-2xl tracking-wide text-white uppercase">
+                <h2 className="font-heading line-clamp-2 min-h-14 text-xl tracking-wide text-white uppercase">
                   {item.title}
                 </h2>
-                <p className="mt-1 text-[0.68rem] tracking-[0.14em] text-zinc-500 uppercase">
+                <p className="mt-2 text-[0.68rem] tracking-[0.14em] text-zinc-500 uppercase">
                   {item.season}
                 </p>
-                {item.description ? (
-                  <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
-                ) : null}
-                <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                  {href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(buttonVariants(), "h-9 px-3 text-xs uppercase")}
-                    >
-                      {mediaLinkLabel(item.linkKind)}
-                      <span className="sr-only"> (opens in a new tab)</span>
-                    </a>
-                  ) : null}
-                  {canAdmin ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError("");
-                          setEditing(item);
-                        }}
-                        className={cn(
-                          buttonVariants({ variant: "outline" }),
-                          "h-9 border-white/15 px-3 text-xs uppercase",
-                        )}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError("");
-                          setDeleteId(item.id);
-                        }}
-                        className={cn(
-                          buttonVariants({ variant: "outline" }),
-                          "h-9 border-white/15 px-3 text-xs uppercase",
-                        )}
-                      >
-                        Delete
-                      </button>
-                      {!filtering ? (
-                        <>
-                          <button
-                            type="button"
-                            disabled={pending || index === 0}
-                            onClick={() => move(item.id, -1)}
-                            className={cn(
-                              buttonVariants({ variant: "outline" }),
-                              "h-9 border-white/15 px-3 text-xs uppercase",
-                            )}
-                          >
-                            Up
-                          </button>
-                          <button
-                            type="button"
-                            disabled={pending || index === ordered.length - 1}
-                            onClick={() => move(item.id, 1)}
-                            className={cn(
-                              buttonVariants({ variant: "outline" }),
-                              "h-9 border-white/15 px-3 text-xs uppercase",
-                            )}
-                          >
-                            Down
-                          </button>
-                        </>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
+                <span className="mt-auto inline-flex pt-4 text-xs font-semibold tracking-[0.14em] text-[#c8102e] uppercase">
+                  {action}
+                  {href ? <span className="sr-only"> (opens in a new tab)</span> : null}
+                </span>
               </div>
+            </>
+          );
+          return (
+            <article
+              key={item.id}
+              className="relative flex min-w-0 flex-col rounded-2xl border border-white/10 bg-zinc-950"
+            >
+              {canAdmin ? (
+                <CollectionMenu
+                  open={openMenuId === item.id}
+                  pending={pending}
+                  canReorder={canReorder}
+                  reorderHint={reorderHint}
+                  canMoveUp={index > 0}
+                  canMoveDown={index >= 0 && index < ordered.length - 1}
+                  onToggle={() => setOpenMenuId((current) => (current === item.id ? null : item.id))}
+                  onClose={() => setOpenMenuId((current) => (current === item.id ? null : current))}
+                  onEdit={() => {
+                    setOpenMenuId(null);
+                    setError("");
+                    setEditing(item);
+                  }}
+                  onDelete={() => {
+                    setOpenMenuId(null);
+                    setError("");
+                    setDeleteId(item.id);
+                  }}
+                  onMove={(direction) => {
+                    setOpenMenuId(null);
+                    move(item.id, direction);
+                  }}
+                />
+              ) : null}
+              {href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] focus-visible:ring-inset"
+                >
+                  {body}
+                </a>
+              ) : (
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">{body}</div>
+              )}
             </article>
           );
         })}

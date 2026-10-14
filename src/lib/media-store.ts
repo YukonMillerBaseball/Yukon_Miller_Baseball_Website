@@ -13,7 +13,7 @@ import {
   type MediaCatalog,
 } from "@/lib/media-catalog";
 
-const MAX_CATALOG_BYTES = 1_000_000;
+const MAX_CATALOG_BYTES = 2_000_000;
 
 export type MediaCatalogRead =
   | { status: "ready"; catalog: MediaCatalog; etag: string | null }
