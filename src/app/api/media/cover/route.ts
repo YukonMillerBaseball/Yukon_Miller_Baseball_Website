@@ -1,4 +1,4 @@
-import { requireMinutes } from "@/lib/minutes-auth";
+import { privateJson, privateNoStore, requireMinutes } from "@/lib/minutes-auth";
 import { isSafeCoverName } from "@/lib/media-catalog";
 import { openMediaCover } from "@/lib/media-store";
 import { NextResponse } from "next/server";
@@ -12,15 +12,15 @@ export async function GET(request: Request) {
 
   const id = new URL(request.url).searchParams.get("id") ?? "";
   if (!isSafeCoverName(id)) {
-    return NextResponse.json({ error: "Cover not found." }, { status: 404 });
+    return privateJson({ error: "Cover not found." }, { status: 404 });
   }
 
   const cover = await openMediaCover(id);
   if (!cover) {
-    return NextResponse.json({ error: "Cover not found." }, { status: 404 });
+    return privateJson({ error: "Cover not found." }, { status: 404 });
   }
 
-  return new NextResponse(cover.body, {
+  return privateNoStore(new NextResponse(cover.body, {
     headers: {
       "Content-Type": cover.contentType,
       "Content-Length": String(cover.size),
@@ -28,5 +28,5 @@ export async function GET(request: Request) {
       "X-Content-Type-Options": "nosniff",
       "Content-Disposition": "inline",
     },
-  });
+  }));
 }

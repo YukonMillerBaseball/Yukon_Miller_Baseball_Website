@@ -1,4 +1,4 @@
-import { requireMinutes } from "@/lib/minutes-auth";
+import { privateJson, requireMinutes } from "@/lib/minutes-auth";
 import {
   findMinutesRecord,
   isAllowedDocument,
@@ -10,7 +10,6 @@ import {
   safeMinutesName,
   saveMinutes,
 } from "@/lib/minutes-store";
-import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,12 +21,12 @@ export async function GET() {
 
   try {
     const library = await listMinutesLibrary();
-    return NextResponse.json({
+    return privateJson({
       files: library.files,
       unavailable: library.unavailable,
     });
   } catch {
-    return NextResponse.json({ files: [], unavailable: true });
+    return privateJson({ files: [], unavailable: true });
   }
 }
 
@@ -42,10 +41,10 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Choose a document." }, { status: 400 });
+    return privateJson({ error: "Choose a document." }, { status: 400 });
   }
   if (file.size > MAX_MINUTES_BYTES) {
-    return NextResponse.json(
+    return privateJson(
       { error: "File must be 80 MB or smaller." },
       { status: 400 },
     );
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
 
   const name = safeMinutesName(file.name);
   if (!name) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Use a PDF, Word .doc, or .docx file." },
       { status: 400 },
     );
@@ -61,7 +60,7 @@ export async function POST(request: Request) {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!(await isAllowedDocument(name, bytes))) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Use a PDF, Word .doc, or .docx file." },
       { status: 400 },
     );
@@ -71,7 +70,7 @@ export async function POST(request: Request) {
   const etagValue = form.get("etag");
   const etag = typeof etagValue === "string" ? etagValue : null;
   if (replace && !etag) {
-    return NextResponse.json(
+    return privateJson(
       { error: "Confirm the existing document before replacing it." },
       { status: 400 },
     );
@@ -81,14 +80,14 @@ export async function POST(request: Request) {
   try {
     current = await findMinutesRecord(name);
   } catch {
-    return NextResponse.json(
+    return privateJson(
       { error: "Could not check existing documents." },
       { status: 500 },
     );
   }
   const plan = minutesWritePlan(name, current, replace, etag);
   if (plan.action === "conflict") {
-    return NextResponse.json(
+    return privateJson(
       {
         exists: true,
         name: plan.name,
@@ -110,7 +109,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof MinutesConflictError || isMinutesConflict(error)) {
-      return NextResponse.json(
+      return privateJson(
         {
           exists: true,
           name: error.storedName,
@@ -122,17 +121,17 @@ export async function POST(request: Request) {
     }
     const message =
       error instanceof Error ? error.message : "Could not save that file.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return privateJson({ error: message }, { status: 500 });
   }
 
   try {
     const library = await listMinutesLibrary();
-    return NextResponse.json({
+    return privateJson({
       ok: true,
       files: library.files,
       unavailable: library.unavailable,
     });
   } catch {
-    return NextResponse.json({ ok: true, files: [], unavailable: true });
+    return privateJson({ ok: true, files: [], unavailable: true });
   }
 }
