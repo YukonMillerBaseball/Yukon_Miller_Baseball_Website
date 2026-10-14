@@ -19,6 +19,7 @@ import {
   parseMediaUrl,
   selectedMediaSeason,
   sortMediaCards,
+  type CoverFit,
   type MediaCard,
   type MediaSort,
 } from "@/lib/media-catalog";
@@ -27,7 +28,8 @@ import { CoverOptimizeError, optimizeCoverImage } from "@/lib/optimize-cover";
 import { cn } from "@/lib/utils";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 
 type LibraryPayload = {
   version?: number;
@@ -46,7 +48,26 @@ function safeHref(url: string) {
   return parsed;
 }
 
-function Cover({ season, url }: { season: string; url: string | null }) {
+function coverFrameStyle(fit: CoverFit, x: number, y: number): CSSProperties {
+  return {
+    objectFit: fit,
+    objectPosition: `${x}% ${y}%`,
+  };
+}
+
+function Cover({
+  season,
+  url,
+  fit,
+  x,
+  y,
+}: {
+  season: string;
+  url: string | null;
+  fit: CoverFit;
+  x: number;
+  y: number;
+}) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
@@ -63,7 +84,8 @@ function Cover({ season, url }: { season: string; url: string | null }) {
     <img
       src={url}
       alt=""
-      className="size-full object-cover object-center"
+      className="size-full"
+      style={coverFrameStyle(fit, x, y)}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
@@ -75,6 +97,24 @@ const controlClass =
   "h-11 w-full min-w-0 max-w-full rounded-lg border border-white/15 bg-black px-3 text-base text-white outline-none focus:border-[#c8102e] sm:h-10 sm:text-sm";
 
 const labelClass = "shrink-0 text-[0.62rem] tracking-[0.18em] text-zinc-500 uppercase";
+
+const MENU_WIDTH = 208;
+const MENU_GAP = 8;
+
+function placeCollectionMenu(rect: DOMRect, menuHeight: number) {
+  const width = Math.min(MENU_WIDTH, Math.max(0, window.innerWidth - MENU_GAP * 2));
+  const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP;
+  const spaceAbove = rect.top - MENU_GAP;
+  const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+  const maxHeight = Math.max(96, Math.floor(openUp ? spaceAbove : spaceBelow));
+  const height = Math.min(menuHeight, maxHeight);
+  let top = openUp ? rect.top - MENU_GAP - height : rect.bottom + MENU_GAP;
+  top = Math.max(MENU_GAP, Math.min(top, window.innerHeight - MENU_GAP - height));
+  let left = rect.right - width;
+  const maxLeft = Math.max(MENU_GAP, window.innerWidth - MENU_GAP - width);
+  left = Math.max(MENU_GAP, Math.min(left, maxLeft));
+  return { top, left, width, maxHeight };
+}
 
 function CollectionMenu({
   open,
@@ -101,23 +141,54 @@ function CollectionMenu({
   onDelete: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
-  const [placement, setPlacement] = useState<"down" | "up">("down");
+  const [box, setBox] = useState<ReturnType<typeof placeCollectionMenu> | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    const button = buttonRef.current;
+    if (!button) return;
+
+    function place() {
+      const current = buttonRef.current;
+      const menu = menuRef.current;
+      if (!current || !menu) return;
+      const next = placeCollectionMenu(current.getBoundingClientRect(), menu.scrollHeight);
+      setBox((previous) =>
+        previous &&
+        previous.top === next.top &&
+        previous.left === next.left &&
+        previous.width === next.width &&
+        previous.maxHeight === next.maxHeight
+          ? previous
+          : next,
+      );
+    }
+
+    place();
+    const observer = new ResizeObserver(place);
+    if (menuRef.current) observer.observe(menuRef.current);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (rect) {
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setPlacement(spaceBelow < 240 && rect.top > spaceBelow ? "up" : "down");
-    }
     function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) onCloseRef.current();
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onCloseRef.current();
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onCloseRef.current();
@@ -133,9 +204,64 @@ function CollectionMenu({
   const itemClass =
     "flex min-h-11 w-full items-center px-3 text-left text-sm text-white hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none disabled:cursor-not-allowed disabled:text-zinc-600 disabled:hover:bg-transparent";
 
+  const menu =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="Collection actions"
+            data-collection-menu
+            className="fixed z-50 overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-950 py-1 shadow-xl"
+            style={
+              box
+                ? { top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }
+                : { top: 0, left: MENU_GAP, width: MENU_WIDTH, visibility: "hidden" }
+            }
+          >
+            <button type="button" role="menuitem" className={itemClass} onClick={onEdit}>
+              Edit collection
+            </button>
+            {reorderHint ? (
+              <p className="px-3 py-2 text-[0.65rem] leading-4 tracking-[0.08em] text-zinc-500 uppercase">
+                {reorderHint}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className={itemClass}
+              disabled={pending || !canReorder || !canMoveUp}
+              onClick={() => onMove(-1)}
+            >
+              Move up
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={itemClass}
+              disabled={pending || !canReorder || !canMoveDown}
+              onClick={() => onMove(1)}
+            >
+              Move down
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(itemClass, "text-red-400 disabled:text-zinc-600")}
+              onClick={onDelete}
+            >
+              Delete collection
+            </button>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="absolute top-2 right-2 z-20">
+    <div className="absolute top-2 right-2 z-20">
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -145,57 +271,99 @@ function CollectionMenu({
       >
         <MoreHorizontal className="size-5" aria-hidden="true" />
       </button>
-      {open ? (
-        <div
-          role="menu"
-          aria-label="Collection actions"
-          className={cn(
-            "absolute right-0 z-30 max-h-[70vh] w-52 overflow-y-auto rounded-xl border border-white/10 bg-zinc-950 py-1 shadow-xl",
-            placement === "up" ? "bottom-full mb-1" : "top-full mt-1",
-          )}
-        >
-          <button type="button" role="menuitem" className={itemClass} onClick={onEdit}>
-            Edit collection
-          </button>
-          {reorderHint ? (
-            <p className="px-3 py-2 text-[0.65rem] leading-4 tracking-[0.08em] text-zinc-500 uppercase">
-              {reorderHint}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            role="menuitem"
-            className={itemClass}
-            disabled={pending || !canReorder || !canMoveUp}
-            onClick={() => onMove(-1)}
-          >
-            Move up
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={itemClass}
-            disabled={pending || !canReorder || !canMoveDown}
-            onClick={() => onMove(1)}
-          >
-            Move down
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={cn(itemClass, "text-red-400 disabled:text-zinc-600")}
-            onClick={onDelete}
-          >
-            Delete collection
-          </button>
-        </div>
-      ) : null}
+      {menu}
     </div>
+  );
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function frameButtonClass(active = false) {
+  return cn(
+    "h-9 rounded-lg border px-3 text-xs tracking-[0.14em] uppercase",
+    active
+      ? "border-[#c8102e] bg-[#c8102e] text-white"
+      : "border-white/15 bg-black text-zinc-200 hover:border-white/30",
   );
 }
 
 function CollectionFields({ initial }: { initial?: MediaCard | null }) {
   const season = selectedMediaSeason(initial?.season);
+  const [fit, setFit] = useState<CoverFit>(initial?.coverFit ?? "cover");
+  const [x, setX] = useState(initial?.coverX ?? 50);
+  const [y, setY] = useState(initial?.coverY ?? 50);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const objectUrl = useRef<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const shownUrl = previewUrl ?? (removeCover ? null : (initial?.coverUrl ?? null));
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shownUrl) return;
+    previewRef.current?.scrollIntoView({ block: "nearest" });
+  }, [shownUrl]);
+
+  function onCoverFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = null;
+    setPreviewFailed(false);
+    if (!file || file.size === 0) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    objectUrl.current = url;
+    setPreviewUrl(url);
+    setRemoveCover(false);
+    setFit("cover");
+    setX(50);
+    setY(50);
+  }
+
+  function onFramePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    drag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: x,
+      originY: y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onFramePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const current = drag.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const dx = event.clientX - current.startX;
+    const dy = event.clientY - current.startY;
+    setX(clampPercent(current.originX - (dx / Math.max(rect.width, 1)) * 100));
+    setY(clampPercent(current.originY - (dy / Math.max(rect.height, 1)) * 100));
+  }
+
+  function onFramePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    if (drag.current?.pointerId === event.pointerId) drag.current = null;
+  }
+
   return (
     <div className="grid gap-4">
       <label className="block">
@@ -271,15 +439,106 @@ function CollectionFields({ initial }: { initial?: MediaCard | null }) {
           name="cover"
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+          onChange={onCoverFile}
           className="mt-2 block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:tracking-[0.14em] file:text-white file:uppercase"
         />
         <span className="mt-2 block text-xs leading-5 text-zinc-500">
           Large photos are resized before upload. The original stays on your device.
         </span>
       </label>
+      <input type="hidden" name="coverFit" value={fit} />
+      <input type="hidden" name="coverX" value={x} />
+      <input type="hidden" name="coverY" value={y} />
+      {shownUrl ? (
+        <div>
+          <p className="text-[0.65rem] font-semibold tracking-[0.2em] text-red-400 uppercase">
+            Card preview
+          </p>
+          <div
+            ref={previewRef}
+            role="application"
+            tabIndex={0}
+            aria-label="Cover position. Drag the photo or use the arrow keys to move it."
+            className="mt-2 aspect-video cursor-grab touch-none overflow-hidden rounded-xl bg-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] active:cursor-grabbing"
+            onPointerDown={onFramePointerDown}
+            onPointerMove={onFramePointerMove}
+            onPointerUp={onFramePointerEnd}
+            onPointerCancel={onFramePointerEnd}
+            onKeyDown={(event) => {
+              const step = event.shiftKey ? 10 : 5;
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setX((value) => clampPercent(value + step));
+              } else if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setX((value) => clampPercent(value - step));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setY((value) => clampPercent(value + step));
+              } else if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setY((value) => clampPercent(value - step));
+              }
+            }}
+          >
+            {previewFailed ? (
+              <div className="flex h-full items-end p-3">
+                <p className="text-xs leading-5 text-zinc-400">
+                  This photo cannot be previewed here. It will use the frame you choose after it is saved.
+                </p>
+              </div>
+            ) : (
+              // Local previews and authenticated covers are not next/image sources.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={shownUrl}
+                alt=""
+                draggable={false}
+                className="pointer-events-none size-full select-none"
+                style={coverFrameStyle(fit, x, y)}
+                onError={() => setPreviewFailed(true)}
+              />
+            )}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Drag the photo to choose what the card shows. Center puts it in the middle. Fill crops it to the card. Fit shows the whole photo.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Cover framing">
+            <button type="button" className={frameButtonClass()} onClick={() => { setX(50); setY(50); }}>
+              Center
+            </button>
+            <button
+              type="button"
+              className={frameButtonClass(fit === "cover")}
+              aria-pressed={fit === "cover"}
+              onClick={() => setFit("cover")}
+            >
+              Fill
+            </button>
+            <button
+              type="button"
+              className={frameButtonClass(fit === "contain")}
+              aria-pressed={fit === "contain"}
+              onClick={() => setFit("contain")}
+            >
+              Fit
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs leading-5 text-zinc-500">
+          After you choose a photo, drag it in the preview to center it or fit it to the card.
+        </p>
+      )}
       {initial?.coverUrl ? (
         <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input name="removeCover" type="checkbox" value="true" />
+          <input
+            name="removeCover"
+            type="checkbox"
+            value="true"
+            checked={removeCover}
+            onChange={(event) => setRemoveCover(event.target.checked)}
+          />
           Remove current cover
         </label>
       ) : null}
@@ -609,7 +868,13 @@ export function MediaLibrary({
           const body = (
             <>
               <div className="aspect-video overflow-hidden rounded-t-xl bg-zinc-900">
-                <Cover season={item.season} url={item.coverUrl} />
+                <Cover
+                  season={item.season}
+                  url={item.coverUrl}
+                  fit={item.coverFit}
+                  x={item.coverX}
+                  y={item.coverY}
+                />
               </div>
               <div className="px-2.5 py-2">
                 <h2 className="font-heading line-clamp-2 text-[0.8rem] leading-4 tracking-wide text-white uppercase">

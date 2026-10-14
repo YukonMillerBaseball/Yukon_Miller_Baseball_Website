@@ -49,6 +49,21 @@ const COLLECTION_ID =
 
 export type MediaLinkKind = "photos" | "video" | "collection";
 
+/** How the stored cover is framed inside the 16:9 card. Missing values mean fill and center. */
+export type CoverFit = "cover" | "contain";
+
+export type CoverFrame = {
+  fit: CoverFit;
+  x: number;
+  y: number;
+};
+
+export const DEFAULT_COVER_FRAME: CoverFrame = { fit: "cover", x: 50, y: 50 };
+
+export function isDefaultCoverFrame(frame: CoverFrame) {
+  return frame.fit === DEFAULT_COVER_FRAME.fit && frame.x === DEFAULT_COVER_FRAME.x && frame.y === DEFAULT_COVER_FRAME.y;
+}
+
 export type MediaCollection = {
   id: string;
   title: string;
@@ -58,6 +73,10 @@ export type MediaCollection = {
   url: string;
   linkKind: MediaLinkKind;
   coverFile: string | null;
+  /** Omitted when the cover uses the default fill-and-center frame. */
+  coverFit?: CoverFit;
+  coverX?: number;
+  coverY?: number;
   order: number;
   /** Set once when a collection is created. Missing on records saved before this field existed. */
   createdAt?: string;
@@ -87,6 +106,9 @@ export type MediaCard = {
   url: string;
   linkKind: MediaLinkKind;
   coverUrl: string | null;
+  coverFit: CoverFit;
+  coverX: number;
+  coverY: number;
   order: number;
   createdAt: string | null;
 };
@@ -239,6 +261,82 @@ export function parseCollectionInput(value: {
   };
 }
 
+function parseSubmittedAxis(value: unknown) {
+  if (value === undefined || value === null || value === "") return 50;
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (!Number.isFinite(number)) return null;
+  const rounded = Math.round(number);
+  if (rounded < 0 || rounded > 100) return null;
+  return rounded;
+}
+
+/** Reads the cover frame submitted with a collection form. Blank values keep the centered fill. */
+export function parseCoverFrame(value: {
+  coverFit?: unknown;
+  coverX?: unknown;
+  coverY?: unknown;
+}): CoverFrame | { error: string } {
+  const fitValue = value.coverFit;
+  const fit =
+    fitValue === undefined || fitValue === "" || fitValue === "cover"
+      ? "cover"
+      : fitValue === "contain"
+        ? "contain"
+        : null;
+  if (!fit) return { error: "Choose how the cover fits the card." };
+  const x = parseSubmittedAxis(value.coverX);
+  const y = parseSubmittedAxis(value.coverY);
+  if (x === null || y === null) return { error: "Choose a cover position from 0 to 100." };
+  return { fit, x, y };
+}
+
+function storedAxis(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const rounded = Math.round(value);
+  if (rounded < 0 || rounded > 100) return null;
+  return rounded;
+}
+
+/** Optional catalog fields. Invalid or default frames are omitted so older catalogs stay unchanged. */
+function readStoredCoverFrame(entry: Record<string, unknown>): CoverFrame | undefined {
+  if (entry.coverFit === undefined && entry.coverX === undefined && entry.coverY === undefined) {
+    return undefined;
+  }
+  const fit =
+    entry.coverFit === undefined || entry.coverFit === "cover"
+      ? "cover"
+      : entry.coverFit === "contain"
+        ? "contain"
+        : null;
+  const x = entry.coverX === undefined ? 50 : storedAxis(entry.coverX);
+  const y = entry.coverY === undefined ? 50 : storedAxis(entry.coverY);
+  if (!fit || x === null || y === null) return undefined;
+  const frame = { fit, x, y } satisfies CoverFrame;
+  return isDefaultCoverFrame(frame) ? undefined : frame;
+}
+
+function withoutCoverFrame(item: MediaCollection): MediaCollection {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    season: item.season,
+    category: item.category,
+    url: item.url,
+    linkKind: item.linkKind,
+    coverFile: item.coverFile,
+    order: item.order,
+    ...(item.createdAt ? { createdAt: item.createdAt } : {}),
+    updatedAt: item.updatedAt,
+  };
+}
+
+function applyCoverFrame(item: MediaCollection, frame: CoverFrame): MediaCollection {
+  const rest = withoutCoverFrame(item);
+  if (!rest.coverFile || isDefaultCoverFrame(frame)) return rest;
+  return { ...rest, coverFit: frame.fit, coverX: frame.x, coverY: frame.y };
+}
+
 export function inspectCover(bytes: Uint8Array): {
   extension: "jpg" | "png" | "webp";
   contentType: string;
@@ -283,6 +381,7 @@ export function addCollection(
   expectedVersion: number,
   input: MediaCollectionInput,
   coverFile: string | null,
+  coverFrame: CoverFrame = DEFAULT_COVER_FRAME,
   now = new Date().toISOString(),
 ) {
   assertVersion(catalog, expectedVersion);
@@ -290,14 +389,17 @@ export function addCollection(
     return { error: `The library can hold ${MAX_MEDIA_COLLECTIONS} collections.` } as const;
   }
   const order = catalog.items.reduce((max, item) => Math.max(max, item.order), -1) + 1;
-  const item: MediaCollection = {
-    id: crypto.randomUUID(),
-    ...input,
-    coverFile,
-    order,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const item = applyCoverFrame(
+    {
+      id: crypto.randomUUID(),
+      ...input,
+      coverFile,
+      order,
+      createdAt: now,
+      updatedAt: now,
+    },
+    coverFrame,
+  );
   return { catalog: nextCatalog(catalog, [...catalog.items, item]) };
 }
 
@@ -307,6 +409,7 @@ export function editCollection(
   id: string,
   input: MediaCollectionInput,
   coverFile: string | null | undefined,
+  coverFrame: CoverFrame = DEFAULT_COVER_FRAME,
   now = new Date().toISOString(),
 ) {
   assertVersion(catalog, expectedVersion);
@@ -318,14 +421,17 @@ export function editCollection(
     current.coverFile && current.coverFile !== nextCover ? current.coverFile : null;
   const items = catalog.items.map((item) =>
     item.id === id
-      ? {
-          ...item,
-          ...input,
-          category: input.category || current.category,
-          coverFile: nextCover,
-          createdAt: current.createdAt,
-          updatedAt: now,
-        }
+      ? applyCoverFrame(
+          {
+            ...item,
+            ...input,
+            category: input.category || current.category,
+            coverFile: nextCover,
+            createdAt: current.createdAt,
+            updatedAt: now,
+          },
+          coverFrame,
+        )
       : item,
   );
   return { catalog: nextCatalog(catalog, items), retiredCover };
@@ -403,10 +509,14 @@ export function parseCatalog(value: unknown): MediaCatalog | null {
     if (typeof entry.order !== "number" || !Number.isInteger(entry.order)) return null;
     if (typeof entry.updatedAt !== "string" || entry.updatedAt.length > 40) return null;
     const createdAt = readCreatedAt(entry.createdAt);
+    const coverFrame = readStoredCoverFrame(entry);
     items.push({
       id: entry.id,
       ...parsed.input,
       coverFile: entry.coverFile,
+      ...(entry.coverFile && coverFrame
+        ? { coverFit: coverFrame.fit, coverX: coverFrame.x, coverY: coverFrame.y }
+        : {}),
       order: entry.order,
       ...(createdAt ? { createdAt } : {}),
       updatedAt: entry.updatedAt,
@@ -425,6 +535,9 @@ export function toMediaCards(catalog: MediaCatalog): MediaCard[] {
     url: item.url,
     linkKind: item.linkKind,
     coverUrl: item.coverFile ? mediaCoverUrl(item.coverFile) : null,
+    coverFit: item.coverFile && item.coverFit === "contain" ? "contain" : "cover",
+    coverX: item.coverFile ? (item.coverX ?? 50) : 50,
+    coverY: item.coverFile ? (item.coverY ?? 50) : 50,
     order: item.order,
     createdAt: item.createdAt ?? null,
   }));

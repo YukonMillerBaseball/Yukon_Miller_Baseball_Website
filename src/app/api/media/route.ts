@@ -9,6 +9,7 @@ import {
   inspectCover,
   isListedMediaSeason,
   parseCollectionInput,
+  parseCoverFrame,
   parseVersion,
   removeCollection,
   reorderCollections,
@@ -116,6 +117,14 @@ export async function POST(request: Request) {
   if (!isListedMediaSeason(parsed.input.season)) {
     return NextResponse.json({ error: "Choose a season." }, { status: 400 });
   }
+  const coverFrame = parseCoverFrame({
+    coverFit: field(form, "coverFit"),
+    coverX: field(form, "coverX"),
+    coverY: field(form, "coverY"),
+  });
+  if ("error" in coverFrame) {
+    return NextResponse.json({ error: coverFrame.error }, { status: 400 });
+  }
   const coverResult = await readCover(form);
   if ("error" in coverResult) {
     return NextResponse.json({ error: coverResult.error }, { status: 400 });
@@ -138,7 +147,13 @@ export async function POST(request: Request) {
         coverResult.cover.extension,
       );
     }
-    const added = addCollection(read.catalog, expectedVersion, parsed.input, coverFile);
+    const added = addCollection(
+      read.catalog,
+      expectedVersion,
+      parsed.input,
+      coverFile,
+      coverFrame,
+    );
     if ("error" in added) {
       await deleteMediaCover(coverFile);
       return NextResponse.json({ error: added.error }, { status: 400 });
@@ -188,6 +203,14 @@ export async function PATCH(request: Request) {
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const coverFrame = parseCoverFrame({
+    coverFit: field(form, "coverFit"),
+    coverX: field(form, "coverX"),
+    coverY: field(form, "coverY"),
+  });
+  if ("error" in coverFrame) {
+    return NextResponse.json({ error: coverFrame.error }, { status: 400 });
+  }
   const coverResult = await readCover(form);
   if ("error" in coverResult) {
     return NextResponse.json({ error: coverResult.error }, { status: 400 });
@@ -224,6 +247,7 @@ export async function PATCH(request: Request) {
       id,
       parsed.input,
       coverFile,
+      coverFrame,
     );
     if (edited === "missing") {
       await deleteMediaCover(uploaded);
