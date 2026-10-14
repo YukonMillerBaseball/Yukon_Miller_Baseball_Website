@@ -51,7 +51,7 @@ function Cover({ season, url }: { season: string; url: string | null }) {
   if (!url || failed) {
     return (
       <div className="flex h-full items-end bg-zinc-900 p-4">
-        <p className="font-heading text-3xl tracking-wide text-white/80 uppercase">
+        <p className="font-heading text-lg tracking-wide text-white/80 uppercase">
           {season}
         </p>
       </div>
@@ -72,7 +72,7 @@ function Cover({ season, url }: { season: string; url: string | null }) {
 }
 
 const controlClass =
-  "h-11 min-w-0 rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-[#c8102e]";
+  "h-10 min-w-0 rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-[#c8102e]";
 
 const labelClass = "shrink-0 text-[0.62rem] tracking-[0.18em] text-zinc-500 uppercase";
 
@@ -141,7 +141,7 @@ function CollectionMenu({
         aria-expanded={open}
         aria-label="Collection actions"
         onClick={onToggle}
-        className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white outline-none hover:border-white/30 focus-visible:ring-2 focus-visible:ring-[#c8102e]"
+        className="flex size-8 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white outline-none hover:border-white/30 focus-visible:ring-2 focus-visible:ring-[#c8102e] sm:size-9"
       >
         <MoreHorizontal className="size-5" aria-hidden="true" />
       </button>
@@ -536,8 +536,8 @@ export function MediaLibrary({
       ) : null}
 
       {!libraryUnavailable && ordered.length > 0 ? (
-        <div className="mt-6 grid gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-3 grid gap-2 sm:mt-6 sm:gap-3">
+          <div className="flex items-center gap-3">
             <input
               type="search"
               value={search}
@@ -546,12 +546,12 @@ export function MediaLibrary({
               aria-label="Search collections"
               className={cn(controlClass, "w-full sm:max-w-md")}
             />
-            <p className={labelClass} aria-live="polite">
+            <p className={cn(labelClass, "text-right")} aria-live="polite">
               {visible.length} {visible.length === 1 ? "collection" : "collections"}
             </p>
           </div>
-          <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:flex-wrap">
-            <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+          <div className="grid grid-cols-2 gap-2 sm:max-w-xl">
+            <label className="grid min-w-0 gap-1">
               <span className={labelClass}>Season</span>
               <select
                 value={seasonFilter}
@@ -567,7 +567,7 @@ export function MediaLibrary({
                 ))}
               </select>
             </label>
-            <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
+            <label className="grid min-w-0 gap-1">
               <span className={labelClass}>Sort by</span>
               <select
                 value={sort}
@@ -601,24 +601,24 @@ export function MediaLibrary({
         </p>
       ) : null}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
         {visible.map((item) => {
           const href = safeHref(item.url);
           const index = ordered.findIndex((entry) => entry.id === item.id);
           const action = mediaLinkLabel(item.linkKind);
           const body = (
             <>
-              <div className="aspect-video overflow-hidden bg-zinc-900">
+              <div className="aspect-video overflow-hidden rounded-t-xl bg-zinc-900">
                 <Cover season={item.season} url={item.coverUrl} />
               </div>
-              <div className="flex flex-1 flex-col p-4">
-                <h2 className="font-heading line-clamp-2 min-h-14 text-xl tracking-wide text-white uppercase">
+              <div className="px-2.5 py-2">
+                <h2 className="font-heading line-clamp-2 text-[0.8rem] leading-4 tracking-wide text-white uppercase">
                   {item.title}
                 </h2>
-                <p className="mt-2 text-[0.68rem] tracking-[0.14em] text-zinc-500 uppercase">
+                <p className="mt-1 text-[0.6rem] leading-4 tracking-[0.12em] text-zinc-500 uppercase">
                   {item.season}
                 </p>
-                <span className="mt-auto inline-flex pt-4 text-xs font-semibold tracking-[0.14em] text-[#c8102e] uppercase">
+                <span className="mt-1 block text-[0.62rem] leading-4 font-semibold tracking-[0.12em] text-[#c8102e] uppercase">
                   {action}
                   {href ? <span className="sr-only"> (opens in a new tab)</span> : null}
                 </span>
@@ -628,7 +628,7 @@ export function MediaLibrary({
           return (
             <article
               key={item.id}
-              className="relative flex min-w-0 flex-col rounded-2xl border border-white/10 bg-zinc-950"
+              className="relative min-w-0 rounded-xl border border-white/10 bg-zinc-950"
             >
               {canAdmin ? (
                 <CollectionMenu
@@ -661,12 +661,12 @@ export function MediaLibrary({
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] focus-visible:ring-inset"
+                  className="block min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e] focus-visible:ring-inset"
                 >
                   {body}
                 </a>
               ) : (
-                <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">{body}</div>
+                <div className="min-w-0">{body}</div>
               )}
             </article>
           );
