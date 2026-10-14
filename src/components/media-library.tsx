@@ -72,7 +72,7 @@ function Cover({ season, url }: { season: string; url: string | null }) {
 }
 
 const controlClass =
-  "h-10 min-w-0 rounded-lg border border-white/15 bg-black px-3 text-sm text-white outline-none focus:border-[#c8102e]";
+  "h-11 w-full min-w-0 max-w-full rounded-lg border border-white/15 bg-black px-3 text-base text-white outline-none focus:border-[#c8102e] sm:h-10 sm:text-sm";
 
 const labelClass = "shrink-0 text-[0.62rem] tracking-[0.18em] text-zinc-500 uppercase";
 
@@ -482,9 +482,9 @@ export function MediaLibrary({
   const deleting = ordered.find((item) => item.id === deleteId);
 
   return (
-    <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+    <div className="min-w-0 max-w-full">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="min-w-0 max-w-2xl text-sm leading-6 break-words text-zinc-400">
           These links open in a new tab. Google Photos and other hosts keep their
           own sharing settings.
         </p>
@@ -536,21 +536,21 @@ export function MediaLibrary({
       ) : null}
 
       {!libraryUnavailable && ordered.length > 0 ? (
-        <div className="mt-3 grid gap-2 sm:mt-6 sm:gap-3">
-          <div className="flex items-center gap-3">
+        <div className="mt-3 grid min-w-0 gap-2 sm:mt-6 sm:gap-3">
+          <div className="grid min-w-0 gap-1.5 sm:max-w-md">
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search collections..."
               aria-label="Search collections"
-              className={cn(controlClass, "w-full sm:max-w-md")}
+              className={cn(controlClass, "appearance-none")}
             />
-            <p className={cn(labelClass, "text-right")} aria-live="polite">
+            <p className={labelClass} aria-live="polite">
               {visible.length} {visible.length === 1 ? "collection" : "collections"}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:max-w-xl">
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:max-w-xl">
             <label className="grid min-w-0 gap-1">
               <span className={labelClass}>Season</span>
               <select
