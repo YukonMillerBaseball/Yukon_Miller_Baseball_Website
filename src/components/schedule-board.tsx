@@ -10,7 +10,6 @@ import {
   isAwayGame,
   isVarsityDistrictGame,
   masterDays,
-  phaseGameCount,
   phaseLabel,
   recordForView,
   regularSeasonCount,
@@ -181,20 +180,16 @@ function MapsPin({ game }: { game: Game }) {
 
 function PhaseHeader({
   phase,
-  count,
   compact,
   collapsible,
   open,
   onToggle,
-  unit = "games",
 }: {
   phase: GamePhase;
-  count: number;
   compact?: boolean;
   collapsible?: boolean;
   open?: boolean;
   onToggle?: () => void;
-  unit?: "games" | "events";
 }) {
   const title = (
     <p className="flex items-baseline gap-3 text-[0.68rem] font-semibold tracking-[0.28em] text-red-400 uppercase">
@@ -206,20 +201,8 @@ function PhaseHeader({
       ) : null}
     </p>
   );
-  const meta = (
-    <p className="text-[0.62rem] tracking-[0.2em] text-zinc-500 uppercase">
-      {count}{" "}
-      {unit === "events"
-        ? count === 1
-          ? "Event"
-          : "Events"
-        : count === 1
-          ? "Game"
-          : "Games"}
-    </p>
-  );
   const rowClass = cn(
-    "flex w-full items-end justify-between gap-4 border-b border-white/10 pb-2 text-left",
+    "w-full border-b border-white/10 pb-2 text-left",
     compact ? "pt-3" : "pt-6",
   );
 
@@ -232,17 +215,11 @@ function PhaseHeader({
         aria-expanded={open}
       >
         {title}
-        {meta}
       </button>
     );
   }
 
-  return (
-    <div className={rowClass}>
-      {title}
-      {meta}
-    </div>
-  );
+  return <div className={rowClass}>{title}</div>;
 }
 
 function DateStamp({ weekday, date }: { weekday: string; date: string }) {
@@ -338,14 +315,6 @@ export function ScheduleBoard() {
   const standing = useMemo(() => recordForView(view), [view]);
   const regularGames = useMemo(() => regularSeasonCount(visible), [visible]);
   const scrimmages = useMemo(() => scrimmageCount(visible), [visible]);
-  const phaseCounts = useMemo(
-    () => ({
-      scrimmage: phaseGameCount(visible, "scrimmage"),
-      regular: phaseGameCount(visible, "regular"),
-      postseason: phaseGameCount(visible, "postseason"),
-    }),
-    [visible],
-  );
 
   return (
     <section>
@@ -455,14 +424,12 @@ export function ScheduleBoard() {
         {view === "master" ? (
           <MasterTable
             days={days}
-            phaseCounts={phaseCounts}
             scrimmagesOpen={scrimmagesOpen}
             onToggleScrimmages={() => setScrimmagesOpen((open) => !open)}
           />
         ) : (
           <TeamList
             days={days}
-            phaseCounts={phaseCounts}
             scrimmagesOpen={scrimmagesOpen}
             onToggleScrimmages={() => setScrimmagesOpen((open) => !open)}
           />
@@ -482,12 +449,10 @@ export function ScheduleBoard() {
 
 function MasterTable({
   days,
-  phaseCounts,
   scrimmagesOpen,
   onToggleScrimmages,
 }: {
   days: ReturnType<typeof masterDays>;
-  phaseCounts: Record<GamePhase, number>;
   scrimmagesOpen: boolean;
   onToggleScrimmages: () => void;
 }) {
@@ -512,12 +477,10 @@ function MasterTable({
             {showPhase ? (
               <PhaseHeader
                 phase={day.phase}
-                count={phaseCounts[day.phase]}
                 compact={index === 0}
                 collapsible={day.phase === "scrimmage"}
                 open={scrimmagesOpen}
                 onToggle={onToggleScrimmages}
-                unit={day.phase === "regular" ? "events" : "games"}
               />
             ) : null}
             {hideRow ? null : (
@@ -567,12 +530,10 @@ function MasterCell({
 
 function TeamList({
   days,
-  phaseCounts,
   scrimmagesOpen,
   onToggleScrimmages,
 }: {
   days: ReturnType<typeof masterDays>;
-  phaseCounts: Record<GamePhase, number>;
   scrimmagesOpen: boolean;
   onToggleScrimmages: () => void;
 }) {
@@ -586,7 +547,6 @@ function TeamList({
             {showPhase ? (
               <PhaseHeader
                 phase={day.phase}
-                count={phaseCounts[day.phase]}
                 compact={index === 0}
                 collapsible={day.phase === "scrimmage"}
                 open={scrimmagesOpen}
