@@ -143,10 +143,14 @@ function SectionHeading({
 export default function FacilitiesPage() {
   return (
     <div className="bg-black">
-      <PageHero kicker="Home of the Millers" title="Facilities" />
+      <PageHero
+        kicker="Our Home"
+        title="Facilities"
+        lede="A look inside the home of Yukon Miller Baseball."
+      />
 
       <section>
-        <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-14">
+        <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6">
           <SectionHeading kicker="Home field" title="Miller Field" />
           <div className="mt-6 max-w-3xl space-y-4">
             {millerFieldHistory.map((paragraph) => (

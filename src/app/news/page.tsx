@@ -39,7 +39,11 @@ export const metadata: Metadata = {
 export default function NewsPage() {
   return (
     <div>
-      <PageHero kicker="Updates" title="News" />
+      <PageHero
+        kicker="Updates"
+        title="News"
+        lede="News, announcements, and more from Yukon Baseball."
+      />
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         {latestStories.length === 0 ? (
           <EmptyState

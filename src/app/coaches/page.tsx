@@ -9,7 +9,11 @@ export const metadata: Metadata = { title: "Coaches", ...publicPageSeo("/coaches
 export default function CoachesPage() {
   return (
     <div>
-      <PageHero kicker="Staff" title="Coaches" />
+      <PageHero
+        kicker="Staff"
+        title="Coaches"
+        lede="Get to know the coaches leading Yukon Miller Baseball."
+      />
       <div className="mx-auto max-w-6xl space-y-12 px-4 py-10 sm:px-6">
         <CoachesBoard />
 
