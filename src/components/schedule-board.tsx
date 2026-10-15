@@ -202,8 +202,8 @@ function PhaseHeader({
     </p>
   );
   const rowClass = cn(
-    "w-full border-b border-white/10 pb-2 text-left",
-    compact ? "pt-3" : "pt-6",
+    "w-full border-b border-white/10 pb-3 text-left sm:pb-2",
+    compact ? "pt-6 sm:pt-3" : "pt-10 sm:pt-6",
   );
 
   if (collapsible && onToggle) {
@@ -296,7 +296,7 @@ function StatBlock({
         align === "right" && "text-left sm:text-right",
       )}
     >
-      <p className="font-heading text-3xl leading-none text-white sm:text-4xl">
+      <p className="font-heading text-2xl leading-none text-white sm:text-4xl">
         {value}
       </p>
       <p className="mt-1 text-[0.52rem] tracking-[0.14em] text-zinc-500 uppercase sm:text-[0.58rem] sm:tracking-[0.18em]">
@@ -322,22 +322,22 @@ export function ScheduleBoard() {
         <div
           className={cn(
             shell,
-            "flex flex-col gap-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pt-5",
+            "flex flex-col gap-6 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pt-5",
           )}
         >
           <div>
             <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
               2027
             </p>
-            <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+            <h1 className="font-heading mt-2 text-4xl leading-none tracking-wide text-white uppercase sm:mt-1.5 sm:text-6xl">
               {view === "master" ? "Schedule" : teamLabel(view)}
             </h1>
             <HomeAwayKey
-              className="mt-3"
+              className="mt-5 sm:mt-3"
               showDistrict={view === "varsity" || view === "master"}
             />
           </div>
-          <div className="flex flex-col items-start gap-2.5 sm:items-end sm:pt-7">
+          <div className="flex flex-col items-start gap-4 border-t border-white/10 pt-5 sm:items-end sm:gap-2.5 sm:border-0 sm:pt-7">
             <div
               className={cn(
                 "grid w-full items-end gap-3 sm:flex sm:w-auto sm:justify-end sm:gap-16",
@@ -374,7 +374,7 @@ export function ScheduleBoard() {
         <div
           className={cn(
             shell,
-            "flex items-center justify-between gap-6 pt-3 sm:hidden",
+            "flex items-center justify-between gap-6 pt-5 sm:hidden",
           )}
         >
           <BuyTicketsLink />
@@ -390,20 +390,20 @@ export function ScheduleBoard() {
         <div
           className={cn(
             shell,
-            "mt-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between",
+            "mt-6 flex flex-col gap-3 sm:mt-2.5 sm:flex-row sm:items-end sm:justify-between",
           )}
         >
-          <div className="flex justify-between gap-1 overflow-x-auto sm:justify-start sm:gap-0.5">
+          <div className="flex justify-start gap-5 overflow-x-auto sm:justify-start sm:gap-0.5">
             {views.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setView(item.id)}
                 className={cn(
-                  "relative shrink-0 px-1 py-2 text-[0.68rem] font-medium tracking-[0.16em] uppercase transition-colors sm:px-2.5 sm:text-[0.72rem]",
+                  "relative shrink-0 px-0 py-3 text-[0.72rem] font-medium tracking-[0.16em] uppercase transition-colors sm:px-2.5 sm:py-2 sm:text-[0.72rem]",
                   view === item.id ? "text-white" : "text-zinc-500 hover:text-white",
                   view === item.id &&
-                    "after:absolute after:right-1 after:bottom-0 after:left-1 after:h-0.5 after:bg-[#c8102e] sm:after:right-2.5 sm:after:left-2.5",
+                    "after:absolute after:right-0 after:bottom-0 after:left-0 after:h-0.5 after:bg-[#c8102e] sm:after:right-2.5 sm:after:left-2.5",
                 )}
               >
                 {item.label}
@@ -412,7 +412,7 @@ export function ScheduleBoard() {
           </div>
           <Link
             href="/schedule/history"
-            className="inline-flex shrink-0 items-center gap-1.5 self-end py-2 text-[0.68rem] font-medium tracking-[0.16em] text-red-400 uppercase transition-colors hover:text-red-300 sm:self-auto sm:text-[0.72rem]"
+            className="inline-flex shrink-0 items-center gap-1.5 self-start py-1 text-[0.68rem] font-medium tracking-[0.16em] text-red-400 uppercase transition-colors hover:text-red-300 sm:self-auto sm:py-2 sm:text-[0.72rem]"
           >
             Past seasons
             <span aria-hidden>→</span>
@@ -486,7 +486,7 @@ function MasterTable({
             {hideRow ? null : (
               <div
                 className={cn(
-                  "grid gap-4 border-b border-white/8 py-3 lg:grid-cols-[5.75rem_1fr_1fr_1fr] lg:items-start",
+                  "grid gap-5 border-b border-white/8 py-5 lg:grid-cols-[5.75rem_1fr_1fr_1fr] lg:items-start lg:gap-4 lg:py-3",
                   index % 2 === 1 && "bg-white/[0.015]",
                 )}
               >
@@ -559,21 +559,21 @@ function TeamList({
                   <div
                     key={game.id}
                     className={cn(
-                      "grid grid-cols-[4.75rem_minmax(0,1fr)_2rem] items-center gap-3 border-b border-white/8 py-3.5 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:gap-4",
+                      "grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-2.5 border-b border-white/8 py-5 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:py-3.5",
                       index % 2 === 1 && "bg-white/[0.015]",
                     )}
                   >
                     <DateStamp weekday={day.weekday} date={day.date} />
-                    <div className="min-w-0 overflow-hidden sm:contents">
-                      <p className="font-heading min-w-0 text-[1.35rem] leading-none tracking-normal uppercase sm:text-xl sm:tracking-wide">
-                        <GameMatchup game={game} />
-                      </p>
+                    <div className="col-start-2 row-start-1 flex items-center justify-end gap-3 sm:col-start-3">
                       <GameDetail
                         game={game}
-                        className="mt-1.5 sm:mt-0 sm:text-right"
+                        className="text-right sm:text-right"
                       />
+                      <MapsPin game={game} />
                     </div>
-                    <MapsPin game={game} />
+                    <p className="col-span-2 font-heading min-w-0 text-[1.65rem] leading-none tracking-normal uppercase sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:text-xl sm:tracking-wide">
+                      <GameMatchup game={game} />
+                    </p>
                   </div>
                 ))}
           </li>
