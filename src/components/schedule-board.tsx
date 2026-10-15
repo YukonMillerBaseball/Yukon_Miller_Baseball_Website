@@ -29,7 +29,7 @@ const views: { id: ScheduleView; label: string }[] = [
   ...teams.map((team) => ({ id: team.id, label: team.label })),
 ];
 
-const shell = "mx-auto max-w-[1320px] px-4 sm:px-6";
+const shell = "mx-auto max-w-6xl px-4 sm:px-6";
 
 function teamLabel(id: TeamId) {
   return teams.find((team) => team.id === id)?.label ?? id;
@@ -325,15 +325,15 @@ export function ScheduleBoard() {
         <div
           className={cn(
             shell,
-            "flex flex-col gap-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pt-5",
+            "flex flex-col gap-4 pt-10 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pt-14",
           )}
         >
-          <div className="min-w-0">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4">
-              <p className="col-start-1 row-start-1 mb-1.5 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+          <div>
+            <div className="grid grid-cols-[minmax(min-content,1fr)_auto] items-baseline gap-x-4">
+              <p className="col-start-1 row-start-1 mb-2 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
                 2027
               </p>
-              <h1 className="font-heading col-start-1 row-start-2 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+              <h1 className="font-heading col-start-1 row-start-2 text-4xl leading-none tracking-wide whitespace-nowrap text-white uppercase sm:text-6xl">
                 {view === "master" ? "Schedule" : teamLabel(view)}
               </h1>
               {view === "master" ? null : (
