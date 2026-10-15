@@ -186,7 +186,6 @@ function PhaseHeader({
   collapsible,
   open,
   onToggle,
-  unit = "games",
 }: {
   phase: GamePhase;
   count: number;
@@ -194,7 +193,6 @@ function PhaseHeader({
   collapsible?: boolean;
   open?: boolean;
   onToggle?: () => void;
-  unit?: "games" | "events";
 }) {
   const title = (
     <p className="flex items-baseline gap-3 text-[0.68rem] font-semibold tracking-[0.28em] text-red-400 uppercase">
@@ -208,14 +206,7 @@ function PhaseHeader({
   );
   const meta = (
     <p className="text-[0.62rem] tracking-[0.2em] text-zinc-500 uppercase">
-      {count}{" "}
-      {unit === "events"
-        ? count === 1
-          ? "Event"
-          : "Events"
-        : count === 1
-          ? "Game"
-          : "Games"}
+      {count}
     </p>
   );
   const rowClass = cn(
@@ -517,7 +508,6 @@ function MasterTable({
                 collapsible={day.phase === "scrimmage"}
                 open={scrimmagesOpen}
                 onToggle={onToggleScrimmages}
-                unit={day.phase === "regular" ? "events" : "games"}
               />
             ) : null}
             {hideRow ? null : (
