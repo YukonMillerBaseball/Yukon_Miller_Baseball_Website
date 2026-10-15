@@ -12,9 +12,7 @@ import {
   masterDays,
   phaseLabel,
   recordForView,
-  regularSeasonCount,
   scheduleNotes,
-  scrimmageCount,
   versusLabel,
   type Game,
   type GamePhase,
@@ -43,17 +41,26 @@ function matchupClass(game: Game) {
 }
 
 function OpponentName({ game }: { game: Game }) {
+  if (!isVarsityDistrictGame(game)) return <>{game.opponent}</>;
+
+  const parts = game.opponent.split(" ");
+  const last = parts.pop() ?? game.opponent;
+  const lead = parts.join(" ");
+
   return (
     <>
-      {game.opponent}
-      {isVarsityDistrictGame(game) ? (
-        <>
-          <span className="text-[#c8102e]" title="District game" aria-hidden>
-            {"\u00A0*"}
-          </span>
-          <span className="sr-only">, district game</span>
-        </>
-      ) : null}
+      {lead ? `${lead} ` : null}
+      <span className="whitespace-nowrap">
+        {last}
+        <span
+          className="ml-[0.2em] tracking-normal text-[#c8102e]"
+          title="District game"
+          aria-hidden
+        >
+          *
+        </span>
+      </span>
+      <span className="sr-only">, district game</span>
     </>
   );
 }
@@ -313,8 +320,6 @@ export function ScheduleBoard() {
   const days = useMemo(() => masterDays(visible), [visible]);
   const listedGames = useMemo(() => gameCount(visible), [visible]);
   const standing = useMemo(() => recordForView(view), [view]);
-  const regularGames = useMemo(() => regularSeasonCount(visible), [visible]);
-  const scrimmages = useMemo(() => scrimmageCount(visible), [visible]);
 
   return (
     <section>
@@ -325,49 +330,50 @@ export function ScheduleBoard() {
             "flex flex-col gap-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pt-5",
           )}
         >
-          <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
-              2027
-            </p>
-            <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
-              {view === "master" ? "Schedule" : teamLabel(view)}
-            </h1>
+          <div className="min-w-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4">
+              <p className="col-start-1 row-start-1 mb-1.5 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+                2027
+              </p>
+              <h1 className="font-heading col-start-1 row-start-2 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+                {view === "master" ? "Schedule" : teamLabel(view)}
+              </h1>
+              {view === "master" ? null : (
+                <p className="relative col-start-2 row-start-2 font-heading text-3xl leading-none tracking-wide text-white sm:hidden">
+                  {standing.display}
+                  <span className="absolute top-full right-0 mt-1.5 text-[0.58rem] font-semibold leading-none tracking-[0.22em] text-zinc-500 uppercase">
+                    Record
+                  </span>
+                </p>
+              )}
+            </div>
             <HomeAwayKey
-              className="mt-3"
+              className={view === "master" ? "mt-3" : "mt-7 sm:mt-3"}
               showDistrict={view === "varsity" || view === "master"}
             />
           </div>
-          <div className="flex flex-col items-start gap-2.5 sm:items-end sm:pt-7">
-            <div
-              className={cn(
-                "grid w-full items-end gap-3 sm:flex sm:w-auto sm:justify-end sm:gap-16",
-                view === "master" ? "grid-cols-2" : "grid-cols-3",
-              )}
-            >
-              {view === "master" ? (
-                <>
-                  <StatBlock
-                    value={String(listedGames).padStart(2, "0")}
-                    label="Total Events"
-                    align="center"
-                  />
-                  <StatBlock
-                    value={standing.display}
-                    label={teamLabel(standing.team)}
-                    align="center"
-                  />
-                </>
-              ) : (
-                <>
-                  <StatBlock value={standing.display} label="Record" />
-                  <StatBlock
-                    value={String(regularGames)}
-                    label="Regular Season"
-                  />
-                  <StatBlock value={String(scrimmages)} label="Scrimmages" />
-                </>
-              )}
-            </div>
+          <div
+            className={cn(
+              "flex-col items-start gap-2.5 sm:flex sm:items-end sm:pt-7",
+              view === "master" ? "flex" : "hidden",
+            )}
+          >
+            {view === "master" ? (
+              <div className="grid w-full grid-cols-2 items-end gap-3 sm:flex sm:w-auto sm:justify-end sm:gap-16">
+                <StatBlock
+                  value={String(listedGames).padStart(2, "0")}
+                  label="Total Events"
+                  align="center"
+                />
+                <StatBlock
+                  value={standing.display}
+                  label={teamLabel(standing.team)}
+                  align="center"
+                />
+              </div>
+            ) : (
+              <StatBlock value={standing.display} label="Record" />
+            )}
             <BuyTicketsLink className="hidden sm:inline-flex" />
           </div>
         </div>
