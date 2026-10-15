@@ -10,8 +10,8 @@ export const kamdenHotzStory = {
   image: {
     src: "/images/news/kamden-hotz-kansas-wesleyan.jpg",
     alt: "Kamden Hotz commitment graphic for Kansas Wesleyan University baseball",
-    width: 1127,
-    height: 1396,
+    width: 886,
+    height: 886,
     focus: "center 42%",
     size: "half" as const,
     expand: true,
