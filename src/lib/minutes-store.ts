@@ -14,14 +14,6 @@ import { mkdir, open, readdir, readFile, rename, stat, unlink, writeFile } from 
 import path from "path";
 import { Readable } from "stream";
 import { ensureMinutesBlobStoreId } from "@/lib/minutes-blob";
-import {
-  deleteGithubMinutes,
-  findGithubMinutesRecord,
-  listGithubMinutes,
-  minutesUsesGithub,
-  readGithubMinutes,
-  saveGithubMinutes,
-} from "@/lib/minutes-github";
 
 export type MinutesFile = {
   name: string;
@@ -69,6 +61,10 @@ export function minutesUsesBlob() {
     process.env.BLOB_READ_WRITE_TOKEN?.trim() ||
       process.env.BLOB_STORE_ID?.trim(),
   );
+}
+
+function localMinutesAllowed() {
+  return !minutesUsesBlob() && !process.env.VERCEL;
 }
 
 async function blobAuth() {
@@ -252,10 +248,10 @@ export async function findMinutesRecord(name: string) {
     try {
       return await findBlobMinutesRecord(name);
     } catch {
-      if (!minutesUsesGithub()) throw new Error("Could not check existing documents.");
+      throw new Error("Could not check existing documents.");
     }
   }
-  if (minutesUsesGithub()) return findGithubMinutesRecord(name);
+  if (!localMinutesAllowed()) return null;
   return findLocalMinutesRecord(name);
 }
 
@@ -300,15 +296,9 @@ export async function listMinutesLibrary(): Promise<{
 }> {
   try {
     if (minutesUsesBlob()) {
-      try {
-        return { files: await listBlob(), unavailable: false };
-      } catch {
-        if (!minutesUsesGithub()) return { files: [], unavailable: true };
-      }
+      return { files: await listBlob(), unavailable: false };
     }
-    if (minutesUsesGithub()) {
-      return { files: await listGithubMinutes(), unavailable: false };
-    }
+    if (!localMinutesAllowed()) return { files: [], unavailable: true };
     return { files: await listLocal(), unavailable: false };
   } catch {
     return { files: [], unavailable: true };
@@ -377,17 +367,8 @@ export async function saveMinutes(
         const current = await findBlobMinutesRecord(name).catch(() => null);
         throw new MinutesConflictError(current?.name ?? name, current?.etag ?? "");
       }
-      if (minutesUsesGithub()) {
-        await saveGithubMinutes(name, bytes, mode.replace ? mode : { replace: false });
-        return;
-      }
       throw new Error("Could not save that file.");
     }
-  }
-
-  if (minutesUsesGithub()) {
-    await saveGithubMinutes(name, bytes, mode.replace ? mode : { replace: false });
-    return;
   }
 
   if (process.env.VERCEL) {
@@ -407,16 +388,13 @@ export async function openMinutes(name: string) {
       if (result && result.statusCode === 200 && result.stream) {
         return { body: result.stream, size: result.blob.size };
       }
+      return null;
     } catch {
-      // Fall through to GitHub or local.
+      return null;
     }
   }
 
-  if (minutesUsesGithub()) {
-    const bytes = await readGithubMinutes(name);
-    if (!bytes) return null;
-    return { body: Buffer.from(bytes), size: bytes.byteLength };
-  }
+  if (!localMinutesAllowed()) return null;
 
   try {
     const filePath = path.join(localDir(), name);
@@ -454,12 +432,13 @@ export async function readMinutes(name: string) {
         }
         return bytes;
       }
+      return null;
     } catch {
-      // Fall through to GitHub or local.
+      return null;
     }
   }
 
-  if (minutesUsesGithub()) return readGithubMinutes(name);
+  if (!localMinutesAllowed()) return null;
 
   try {
     const buf = await readFile(path.join(localDir(), name));
@@ -475,12 +454,11 @@ export async function deleteMinutes(name: string) {
       await del(minutesBlobPath(name), await blobAuth());
       return;
     } catch {
-      if (!minutesUsesGithub()) throw new Error("Could not remove that file.");
+      throw new Error("Could not remove that file.");
     }
   }
-  if (minutesUsesGithub()) {
-    await deleteGithubMinutes(name);
-    return;
+  if (!localMinutesAllowed()) {
+    throw new Error("Could not remove that file.");
   }
   await unlink(path.join(localDir(), name));
 }
