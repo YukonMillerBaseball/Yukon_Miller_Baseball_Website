@@ -321,7 +321,7 @@ export function ScheduleBoard() {
 
   return (
     <section>
-      <header className="border-b border-white/10">
+      <header className="border-b border-white/8">
         <div
           className={cn(
             shell,
@@ -329,11 +329,11 @@ export function ScheduleBoard() {
           )}
         >
           <div>
-            <div className="grid grid-cols-[minmax(min-content,1fr)_auto] items-baseline gap-x-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4">
               <p className="col-start-1 row-start-1 mb-2 text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
                 2027
               </p>
-              <h1 className="font-heading col-start-1 row-start-2 text-4xl tracking-wide whitespace-nowrap text-white uppercase sm:text-5xl">
+              <h1 className="font-heading col-start-1 row-start-2 text-4xl tracking-wide text-white uppercase sm:text-5xl sm:whitespace-nowrap">
                 {view === "master" ? "Schedule" : teamLabel(view)}
               </h1>
               {view === "master" ? null : (
@@ -345,8 +345,11 @@ export function ScheduleBoard() {
                 </p>
               )}
             </div>
+            <p className="mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:mt-4">
+              Keep up with the Millers all season long.
+            </p>
             <HomeAwayKey
-              className={view === "master" ? "mt-3" : "mt-7 sm:mt-3"}
+              className="mt-3"
               showDistrict={view === "varsity" || view === "master"}
             />
           </div>
