@@ -51,13 +51,13 @@ export function RosterBoard() {
       <header className="relative overflow-hidden border-b border-white/10 bg-[linear-gradient(180deg,#1a0a0d_0%,#0a0a0c_100%)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(200,16,46,0.28),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#c8102e] to-transparent" />
-        <div className="relative flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-7 sm:py-5">
-          <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
-              Yukon Miller Baseball
+        <div className="relative flex items-start justify-between gap-3 px-5 py-3.5 sm:items-end sm:px-7 sm:py-5">
+          <div className="min-w-0">
+            <p className="text-[0.62rem] font-semibold tracking-[0.22em] text-red-400 uppercase sm:text-[0.68rem] sm:tracking-[0.32em]">
+              2027 Baseball Season
             </p>
-            <h2 className="font-heading mt-2 text-4xl leading-none tracking-wide text-white uppercase sm:text-5xl">
-              Program Roster
+            <h2 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:mt-2 sm:text-5xl">
+              The Millers
             </h2>
             {classFilter !== "all" || positionFilter !== "all" ? (
               <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
@@ -70,18 +70,17 @@ export function RosterBoard() {
               </p>
             ) : null}
           </div>
-          <div>
-            <p className="font-heading text-4xl leading-none text-white">
+          <div className="shrink-0 pt-0.5 text-right sm:pt-0">
+            <p className="font-heading text-xl leading-none text-zinc-400 sm:text-4xl sm:text-white">
               {String(visiblePlayers.length).padStart(2, "0")}
             </p>
-            <p className="mt-1 text-[0.65rem] tracking-[0.2em] text-zinc-500 uppercase">
+            <p className="mt-1 text-[0.52rem] tracking-[0.16em] text-zinc-500 uppercase sm:text-[0.65rem] sm:tracking-[0.2em]">
               Players
             </p>
           </div>
         </div>
         <div className="relative flex items-center gap-4 border-t border-white/8 px-5 py-2 text-[0.62rem] tracking-[0.2em] text-zinc-500 uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_4rem] sm:px-7">
           <label className="inline-flex min-w-0 flex-wrap items-center gap-2.5 normal-case">
-            <span className="tracking-[0.2em] uppercase">Player</span>
             <span className="relative inline-flex">
               <select
                 value={classFilter === "all" ? "all" : String(classFilter)}

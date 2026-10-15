@@ -8,13 +8,8 @@ export const metadata: Metadata = { title: "Roster", ...publicPageSeo("/roster")
 export default function RosterPage() {
   return (
     <div>
-      <PageHero
-        kicker="Players"
-        title="Roster"
-        lede="Browse the Yukon Miller Baseball roster by class or position. Select a player to view their profile."
-        className="pb-5 sm:pb-6"
-      />
-      <div className="mx-auto max-w-6xl px-4 pt-3 pb-10 sm:px-6 sm:pt-4">
+      <PageHero kicker="Players" title="Roster" className="pb-0 sm:pb-0" />
+      <div className="mx-auto max-w-6xl px-4 pt-5 pb-10 sm:px-6 sm:pt-6">
         <RosterBoard />
       </div>
     </div>
