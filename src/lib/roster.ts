@@ -16,7 +16,7 @@ const programPlayers: Omit<Player, "id">[] = [
   { firstName: "Gabriel", lastName: "Alvarado Holland", bats: "R", throws: "L", gradYear: 2030, position: "INF/P" },
   { firstName: "Colten", lastName: "Bentley", bats: "L", throws: "L", gradYear: 2030, position: "1B/P" },
   { firstName: "Graham", lastName: "Blair", bats: "R", throws: "R", gradYear: 2029, position: "OF" },
-  { firstName: "Owen", lastName: "Blair", bats: "R", throws: "R", gradYear: 2027, position: "Util/P", photo: "/images/roster/owen-blair.jpg" },
+  { firstName: "Owen", lastName: "Blair", bats: "R", throws: "R", gradYear: 2027, position: "Util/P", photo: "/images/roster/owen-blair-throw.jpg" },
   { firstName: "Boston", lastName: "Campeotto", bats: "R", throws: "R", gradYear: 2028, position: "OF/P", photo: "/images/roster/boston-campeotto.jpg" },
   { firstName: "Nathan", lastName: "Clark", bats: "L", throws: "L", gradYear: 2027, position: "1B", photo: "/images/roster/nathan-clark.jpg" },
   { firstName: "Charles", lastName: "Copus", bats: "R", throws: "R", gradYear: 2027, position: "C", photo: "/images/roster/charles-copus.jpg" },
