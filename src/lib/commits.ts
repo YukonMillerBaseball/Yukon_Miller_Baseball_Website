@@ -100,4 +100,23 @@ export const commits: Commit[] = [
     },
     newsSlug: "gunner-fletcher-southwestern-christian",
   },
+  {
+    id: "kamden-hotz",
+    pick: "05",
+    player: "Kamden Hotz",
+    school: "Kansas Wesleyan University",
+    mascot: "Coyotes",
+    division: "NAIA",
+    conference: "Kansas Collegiate Athletic Conference",
+    city: "Salina, Kansas",
+    stadium: "Dean Evans Stadium",
+    colors: { primary: "#5829B6", secondary: "#E8B923" },
+    logo: {
+      src: "/images/schools/kansas-wesleyan-coyotes.png",
+      width: 754,
+      height: 240,
+      alt: "Kansas Wesleyan Coyotes wordmark",
+    },
+    newsSlug: "kamden-hotz-kansas-wesleyan",
+  },
 ];

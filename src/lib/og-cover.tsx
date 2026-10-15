@@ -22,6 +22,7 @@ const articleOgSlugs = new Set([
   "gunner-fletcher-southwestern-christian",
   "czech-festival-parade-2026",
   "yukon-baseball-fall-camp",
+  "kamden-hotz-kansas-wesleyan",
 ]);
 
 const articleOgFiles: Record<string, string> = {
