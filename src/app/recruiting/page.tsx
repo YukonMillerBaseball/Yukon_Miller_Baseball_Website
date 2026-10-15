@@ -11,7 +11,7 @@ export default function RecruitingPage() {
       <PageHero
         kicker="Next level"
         title="Recruiting"
-        lede="College commits post here when a Miller makes it official. College coaches can reach the Yukon staff directly."
+        lede="College commitments and recruiting information for Yukon Miller Baseball."
       />
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <CommitBoard />
