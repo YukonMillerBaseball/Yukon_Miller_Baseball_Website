@@ -4,7 +4,6 @@ import {
   formatGameDate,
   formatGameScore,
   formatWeekdayShort,
-  gameCount,
   gameResult,
   gamesForView,
   isAwayGame,
@@ -300,7 +299,7 @@ function StatBlock({
         "min-w-0 sm:min-w-[4.5rem]",
         align === "left" && "text-left",
         align === "center" && "text-center",
-        align === "right" && "text-left sm:text-right",
+        align === "right" && "text-right",
       )}
     >
       <p className="font-heading text-3xl leading-none text-white sm:text-4xl">
@@ -318,7 +317,6 @@ export function ScheduleBoard() {
   const [scrimmagesOpen, setScrimmagesOpen] = useState(false);
   const visible = useMemo(() => gamesForView(view), [view]);
   const days = useMemo(() => masterDays(visible), [visible]);
-  const listedGames = useMemo(() => gameCount(visible), [visible]);
   const standing = useMemo(() => recordForView(view), [view]);
 
   return (
@@ -354,26 +352,14 @@ export function ScheduleBoard() {
           </div>
           <div
             className={cn(
-              "flex-col items-start gap-2.5 sm:flex sm:items-end sm:pt-7",
-              view === "master" ? "flex" : "hidden",
+              "flex-col gap-2.5 sm:flex sm:items-end sm:pt-7",
+              view === "master" ? "flex items-end" : "hidden items-start",
             )}
           >
-            {view === "master" ? (
-              <div className="grid w-full grid-cols-2 items-end gap-3 sm:flex sm:w-auto sm:justify-end sm:gap-16">
-                <StatBlock
-                  value={String(listedGames).padStart(2, "0")}
-                  label="Total Events"
-                  align="center"
-                />
-                <StatBlock
-                  value={standing.display}
-                  label={teamLabel(standing.team)}
-                  align="center"
-                />
-              </div>
-            ) : (
-              <StatBlock value={standing.display} label="Record" />
-            )}
+            <StatBlock
+              value={standing.display}
+              label={view === "master" ? teamLabel(standing.team) : "Record"}
+            />
             <BuyTicketsLink className="hidden sm:inline-flex" />
           </div>
         </div>
