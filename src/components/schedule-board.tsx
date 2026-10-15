@@ -333,7 +333,7 @@ export function ScheduleBoard() {
               <p className="col-start-1 row-start-1 mb-2 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
                 2027
               </p>
-              <h1 className="font-heading col-start-1 row-start-2 text-4xl leading-none tracking-wide whitespace-nowrap text-white uppercase sm:text-6xl">
+              <h1 className="font-heading col-start-1 row-start-2 text-4xl tracking-wide whitespace-nowrap text-white uppercase sm:text-5xl">
                 {view === "master" ? "Schedule" : teamLabel(view)}
               </h1>
               {view === "master" ? null : (
