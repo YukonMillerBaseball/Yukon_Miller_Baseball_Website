@@ -8,6 +8,7 @@ import {
   gameResult,
   gamesForView,
   isAwayGame,
+  isVarsityDistrictGame,
   masterDays,
   phaseGameCount,
   phaseLabel,
@@ -42,12 +43,30 @@ function matchupClass(game: Game) {
   return isAwayGame(game.location) ? "text-red-400" : "text-white";
 }
 
+function OpponentName({ game }: { game: Game }) {
+  return (
+    <>
+      {game.opponent}
+      {isVarsityDistrictGame(game) ? (
+        <>
+          <span className="text-[#c8102e]" title="District game" aria-hidden>
+            {"\u00A0*"}
+          </span>
+          <span className="sr-only">, district game</span>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function GameMatchup({ game, className }: { game: Game; className?: string }) {
   const field = fieldForGame(game);
   const href = field ? mapsUrlForField(field) : undefined;
   const color = matchupClass(game);
   const opponent = (
-    <span className={cn(color, "min-w-0")}>{game.opponent}</span>
+    <span className={cn(color, "min-w-0")}>
+      <OpponentName game={game} />
+    </span>
   );
 
   return (
@@ -65,7 +84,7 @@ function GameMatchup({ game, className }: { game: Game; className?: string }) {
           className={cn(color, "min-w-0 underline-offset-4 hover:underline")}
           aria-label={`Directions to ${field.name}`}
         >
-          {game.opponent}
+          <OpponentName game={game} />
         </a>
       )}
     </span>
@@ -87,6 +106,12 @@ function HomeAwayKey({ className }: { className?: string }) {
       <span className="inline-flex items-center gap-2 text-red-400">
         <span className="size-1.5 rounded-full bg-[#c8102e]" aria-hidden />
         Away · @
+      </span>
+      <span className="inline-flex items-center gap-1.5 text-white">
+        <span className="text-[#c8102e]" aria-hidden>
+          *
+        </span>
+        District · Varsity
       </span>
     </div>
   );

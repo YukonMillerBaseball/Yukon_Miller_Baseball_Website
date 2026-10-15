@@ -164,6 +164,28 @@ export const scheduleNotes = [
   "Saturday, May 3 — district completion date",
 ] as const;
 
+/** 2027 varsity district. Schedule spellings stay as entered, including Capital Hill and PCO. */
+const varsityDistrictOpponents = new Set([
+  "capital hill",
+  "capitol hill",
+  "deer creek",
+  "edmond memorial",
+  "memorial",
+  "putnam city",
+  "pco",
+  "putnam city north",
+  "moore",
+  "westmoore",
+]);
+
+export function isVarsityDistrictGame(game: Game) {
+  return (
+    game.team === "varsity" &&
+    game.phase === "regular" &&
+    varsityDistrictOpponents.has(game.opponent.trim().toLowerCase())
+  );
+}
+
 export const phaseLabel: Record<GamePhase, string> = {
   scrimmage: "Scrimmages",
   regular: "Regular season",
