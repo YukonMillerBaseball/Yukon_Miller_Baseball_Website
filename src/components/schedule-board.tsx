@@ -330,7 +330,7 @@ export function ScheduleBoard() {
         >
           <div>
             <div className="grid grid-cols-[minmax(min-content,1fr)_auto] items-baseline gap-x-4">
-              <p className="col-start-1 row-start-1 mb-2 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+              <p className="col-start-1 row-start-1 mb-2 text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
                 2027
               </p>
               <h1 className="font-heading col-start-1 row-start-2 text-4xl tracking-wide whitespace-nowrap text-white uppercase sm:text-5xl">

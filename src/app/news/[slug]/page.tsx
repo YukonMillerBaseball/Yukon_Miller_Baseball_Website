@@ -63,10 +63,10 @@ export default async function NewsArticlePage({
         article.blocks ? "max-w-4xl" : "max-w-3xl"
       }`}
     >
-      <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-red-400 uppercase">
+      <p className="text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
         {article.category} · {article.date}
       </p>
-      <h1 className="font-heading mt-3 text-4xl tracking-wide text-white uppercase sm:text-5xl">
+      <h1 className="font-heading mt-2 text-4xl tracking-wide text-white uppercase sm:text-5xl">
         {article.title}
       </h1>
       {article.excerpt ? (

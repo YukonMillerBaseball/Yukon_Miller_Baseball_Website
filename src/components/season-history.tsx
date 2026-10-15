@@ -72,10 +72,10 @@ export function SeasonHistoryIndex() {
             <span aria-hidden>←</span>
             Current schedule
           </Link>
-          <p className="mt-4 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+          <p className="mt-4 text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
             Schedule
           </p>
-          <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+          <h1 className="font-heading mt-2 text-4xl tracking-wide text-white uppercase sm:text-5xl">
             Season history
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-400">
@@ -145,10 +145,10 @@ export function SeasonResults({ season }: { season: HistoricalSeason }) {
           )}
         >
           <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+            <p className="text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
               {season.year}
             </p>
-            <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+            <h1 className="font-heading mt-2 text-4xl tracking-wide text-white uppercase sm:text-5xl">
               {season.teamLabel}
             </h1>
             <HomeAwayKey />
