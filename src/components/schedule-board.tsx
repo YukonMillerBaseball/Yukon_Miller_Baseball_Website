@@ -91,7 +91,13 @@ function GameMatchup({ game, className }: { game: Game; className?: string }) {
   );
 }
 
-function HomeAwayKey({ className }: { className?: string }) {
+function HomeAwayKey({
+  className,
+  showDistrict = false,
+}: {
+  className?: string;
+  showDistrict?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -107,12 +113,14 @@ function HomeAwayKey({ className }: { className?: string }) {
         <span className="size-1.5 rounded-full bg-[#c8102e]" aria-hidden />
         Away · @
       </span>
-      <span className="inline-flex items-center gap-1.5 text-white">
-        <span className="text-[#c8102e]" aria-hidden>
-          *
+      {showDistrict ? (
+        <span className="inline-flex items-center gap-1.5 text-white">
+          <span className="text-[#c8102e]" aria-hidden>
+            *
+          </span>
+          District
         </span>
-        District · Varsity
-      </span>
+      ) : null}
     </div>
   );
 }
@@ -355,7 +363,10 @@ export function ScheduleBoard() {
             <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
               {view === "master" ? "Schedule" : teamLabel(view)}
             </h1>
-            <HomeAwayKey className="mt-3" />
+            <HomeAwayKey
+              className="mt-3"
+              showDistrict={view === "varsity" || view === "master"}
+            />
           </div>
           <div className="flex flex-col items-start gap-2.5 sm:items-end sm:pt-7">
             <div
