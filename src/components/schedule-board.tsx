@@ -70,7 +70,7 @@ function GameMatchup({ game, className }: { game: Game; className?: string }) {
   );
 
   return (
-    <span className={cn("inline-flex min-w-0 items-baseline gap-2", className)}>
+    <span className={cn("inline-flex min-w-0 items-baseline gap-1 sm:gap-2", className)}>
       <span className="shrink-0 text-[0.7rem] tracking-[0.16em] text-zinc-500 uppercase">
         {versusLabel(game.location)}
       </span>
@@ -605,7 +605,7 @@ function TeamList({
                   >
                     <DateStamp weekday={day.weekday} date={day.date} />
                     <div className="min-w-0 overflow-hidden sm:contents">
-                      <p className="font-heading min-w-0 text-[1.35rem] leading-none tracking-wide uppercase sm:text-xl">
+                      <p className="font-heading min-w-0 text-[1.35rem] leading-none tracking-normal uppercase sm:text-xl sm:tracking-wide">
                         <GameMatchup game={game} />
                       </p>
                       <GameDetail
