@@ -53,7 +53,7 @@ function OpponentName({ game }: { game: Game }) {
       <span className="whitespace-nowrap">
         {last}
         <span
-          className="ml-[0.08em] tracking-normal text-[#c8102e]"
+          className="ml-[0.2em] tracking-normal text-[#c8102e]"
           title="District game"
           aria-hidden
         >
@@ -331,28 +331,24 @@ export function ScheduleBoard() {
           )}
         >
           <div className="min-w-0">
-            <div className="flex items-end justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
-                  2027
-                </p>
-                <h1 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
-                  {view === "master" ? "Schedule" : teamLabel(view)}
-                </h1>
-              </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4">
+              <p className="col-start-1 row-start-1 mb-1.5 text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+                2027
+              </p>
+              <h1 className="font-heading col-start-1 row-start-2 text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+                {view === "master" ? "Schedule" : teamLabel(view)}
+              </h1>
               {view === "master" ? null : (
-                <div className="shrink-0 pb-0.5 text-right sm:hidden">
-                  <p className="font-heading text-3xl leading-none tracking-wide text-white">
-                    {standing.display}
-                  </p>
-                  <p className="mt-1 text-[0.52rem] font-semibold tracking-[0.2em] text-zinc-500 uppercase">
+                <p className="relative col-start-2 row-start-2 font-heading text-3xl leading-none tracking-wide text-white sm:hidden">
+                  {standing.display}
+                  <span className="absolute top-full right-0 mt-1.5 text-[0.58rem] font-semibold leading-none tracking-[0.22em] text-zinc-500 uppercase">
                     Record
-                  </p>
-                </div>
+                  </span>
+                </p>
               )}
             </div>
             <HomeAwayKey
-              className="mt-3"
+              className={view === "master" ? "mt-3" : "mt-7 sm:mt-3"}
               showDistrict={view === "varsity" || view === "master"}
             />
           </div>
