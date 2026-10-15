@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Roster", ...publicPageSeo("/roster")
 export default function RosterPage() {
   return (
     <div>
-      <PageHero kicker="Players" title="Roster" className="pb-0 sm:pb-0" />
-      <div className="mx-auto max-w-6xl px-4 pt-5 pb-10 sm:px-6 sm:pt-6">
+      <PageHero kicker="Players" title="Roster" />
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <RosterBoard />
       </div>
     </div>
