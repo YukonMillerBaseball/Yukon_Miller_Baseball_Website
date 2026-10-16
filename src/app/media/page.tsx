@@ -5,7 +5,7 @@ import { PageHero } from "@/components/page-hero";
 import { emptyCatalog, toMediaCards } from "@/lib/media-catalog";
 import { readMediaCatalog } from "@/lib/media-store";
 import { minutesAccess } from "@/lib/minutes-auth";
-import { MINUTES_EXPIRED_MESSAGE } from "@/lib/minutes-session";
+import { MINUTES_EXPIRED_MESSAGE, MINUTES_UNAVAILABLE_MESSAGE } from "@/lib/minutes-session";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,13 @@ export default async function MediaPage() {
           </MinutesSessionGuard>
         ) : (
           <MinutesLogin
-            notice={access.state === "expired" ? MINUTES_EXPIRED_MESSAGE : undefined}
+            notice={
+              access.state === "expired"
+                ? MINUTES_EXPIRED_MESSAGE
+                : access.state === "unavailable"
+                  ? MINUTES_UNAVAILABLE_MESSAGE
+                  : undefined
+            }
             description={loginDescription}
             submitLabel={loginSubmitLabel}
           />

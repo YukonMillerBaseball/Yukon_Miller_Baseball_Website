@@ -4,18 +4,26 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import { MINUTES_IDLE_MS } from "@/lib/minutes-session";
+import { createHash } from "node:crypto";
 import {
   createMinutesSession,
+  createSessionId,
   minutesAuthConfig,
   readMinutesSession,
   refreshMinutesSession,
   resolveMinutesRole,
+  SESSION_MS,
 } from "@/lib/minutes-session-token";
 
 const VIEWER = "viewer-test-only";
 const ADMIN = "admin-test-only";
 const SECRET = "test-only-session-secret";
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function sessionId() {
+  const value = createSessionId();
+  if (!value) throw new Error("Could not create a session id.");
+  return value;
+}
 const ENV_NAMES = ["MINUTES_PASSWORD", "MINUTES_ADMIN_PASSWORD", "MINUTES_SECRET"] as const;
 
 function sign(payload: string, secret: string) {
@@ -50,7 +58,7 @@ describe("minutes auth configuration", () => {
     assert.equal(minutesAuthConfig(), null);
     assert.equal(resolveMinutesRole(VIEWER), null);
     assert.equal(resolveMinutesRole(ADMIN), null);
-    assert.equal(createMinutesSession("view"), null);
+    assert.equal(createMinutesSession("view", sessionId()), null);
     assert.equal(readMinutesSession("view.1.1.forged").state, "anonymous");
 
     withAuthEnv();
@@ -63,7 +71,7 @@ describe("minutes auth configuration", () => {
 
     delete process.env.MINUTES_SECRET;
     assert.equal(minutesAuthConfig(), null);
-    assert.equal(createMinutesSession("admin"), null);
+    assert.equal(createMinutesSession("admin", sessionId()), null);
   });
 
   it("keeps viewer access read-only and administrator access separate", () => {
@@ -77,15 +85,21 @@ describe("minutes auth configuration", () => {
     assert.equal(resolveMinutesRole("not-a-password"), null);
 
     const now = 1_700_000_000_000;
-    const viewer = createMinutesSession("view", now);
-    const admin = createMinutesSession("admin", now);
-    assert.equal(viewer?.split(".")[0], "view");
-    assert.equal(admin?.split(".")[0], "admin");
+    const viewerId = sessionId();
+    const adminId = sessionId();
+    const viewer = createMinutesSession("view", viewerId, now);
+    const admin = createMinutesSession("admin", adminId, now);
+    assert.equal(viewer?.split(".")[1], "view");
+    assert.equal(admin?.split(".")[1], "admin");
+    assert.equal(viewer?.includes(VIEWER), false);
+    assert.equal(admin?.includes(ADMIN), false);
+    assert.equal(viewer?.includes(createHash("sha256").update(VIEWER).digest("hex")), false);
     assert.deepEqual(readMinutesSession(viewer ?? "", now), {
       state: "active",
       role: "view",
       lastActivity: now,
       absoluteExp: now + SESSION_MS,
+      sessionId: viewerId,
     });
     const adminAccess = readMinutesSession(admin ?? "", now);
     assert.equal(adminAccess.state, "active");
@@ -96,7 +110,8 @@ describe("minutes auth configuration", () => {
     rememberEnv();
     withAuthEnv();
     const now = 1_700_000_000_000;
-    const session = createMinutesSession("admin", now);
+    const id = sessionId();
+    const session = createMinutesSession("admin", id, now);
     assert.ok(session);
 
     assert.equal(readMinutesSession(`${session}x`, now).state, "anonymous");
@@ -109,26 +124,35 @@ describe("minutes auth configuration", () => {
     const tampered = `view.${payload.slice(payload.indexOf(".") + 1)}.${session.slice(session.lastIndexOf(".") + 1)}`;
     assert.equal(readMinutesSession(tampered, now).state, "anonymous");
 
-    assert.equal(readMinutesSession(session, now + MINUTES_IDLE_MS).state, "expired");
-    assert.equal(readMinutesSession(session, now + SESSION_MS + 1).state, "expired");
+    const idle = readMinutesSession(session, now + MINUTES_IDLE_MS);
+    assert.equal(idle.state, "expired");
+    if (idle.state === "expired") assert.equal(idle.sessionId, id);
+    const absolute = readMinutesSession(session, now + SESSION_MS + 1);
+    assert.equal(absolute.state, "expired");
+    if (absolute.state === "expired") assert.equal(absolute.sessionId, id);
 
     const legacyPayload = `view.${now + 60_000}`;
     const legacy = `${legacyPayload}.${sign(legacyPayload, SECRET)}`;
-    assert.equal(readMinutesSession(legacy, now).state, "expired");
-    assert.equal(readMinutesSession(`view.${now - 1}.${sign(`view.${now - 1}`, SECRET)}`, now).state, "anonymous");
+    assert.equal(readMinutesSession(legacy, now).state, "anonymous");
+    assert.equal(
+      readMinutesSession(`view.${now - 1}.${sign(`view.${now - 1}`, SECRET)}`, now).state,
+      "anonymous",
+    );
+    assert.equal(readMinutesSession(`ok.${now + SESSION_MS}.${now}.${id}.${session.slice(session.lastIndexOf(".") + 1)}`, now).state, "anonymous");
   });
 
   it("refreshes activity without extending the absolute session", () => {
     rememberEnv();
     withAuthEnv();
     const now = 1_700_000_000_000;
-    const session = createMinutesSession("view", now);
+    const id = sessionId();
+    const session = createMinutesSession("view", id, now);
     assert.ok(session);
     const access = readMinutesSession(session, now);
     assert.equal(access.state, "active");
     if (access.state !== "active") return;
 
-    const refreshed = refreshMinutesSession(access.role, access.absoluteExp, now + 5_000);
+    const refreshed = refreshMinutesSession(access.role, access.absoluteExp, access.sessionId, now + 5_000);
     assert.ok(refreshed);
     const next = readMinutesSession(refreshed ?? "", now + 5_000);
     assert.deepEqual(next, {
@@ -136,10 +160,34 @@ describe("minutes auth configuration", () => {
       role: "view",
       lastActivity: now + 5_000,
       absoluteExp: access.absoluteExp,
+      sessionId: id,
     });
+    assert.equal(
+      refreshMinutesSession(access.role, now + 5_000 + SESSION_MS + 1, id, now + 5_000),
+      null,
+    );
 
     delete process.env.MINUTES_SECRET;
-    assert.equal(refreshMinutesSession("view", access.absoluteExp, now + 5_000), null);
+    assert.equal(refreshMinutesSession("view", access.absoluteExp, id, now + 5_000), null);
+  });
+
+  it("invalidates only the role whose password changed", () => {
+    rememberEnv();
+    withAuthEnv();
+    const now = 1_700_000_000_000;
+    const viewer = createMinutesSession("view", sessionId(), now);
+    const admin = createMinutesSession("admin", sessionId(), now);
+    assert.equal(readMinutesSession(viewer ?? "", now).state, "active");
+    assert.equal(readMinutesSession(admin ?? "", now).state, "active");
+
+    process.env.MINUTES_PASSWORD = "rotated-viewer-test-only";
+    assert.equal(readMinutesSession(viewer ?? "", now).state, "anonymous");
+    assert.equal(readMinutesSession(admin ?? "", now).state, "active");
+
+    process.env.MINUTES_PASSWORD = VIEWER;
+    process.env.MINUTES_ADMIN_PASSWORD = "rotated-admin-test-only";
+    assert.equal(readMinutesSession(viewer ?? "", now).state, "active");
+    assert.equal(readMinutesSession(admin ?? "", now).state, "anonymous");
   });
 
   it("does not keep published password fallbacks in the auth source", () => {
@@ -149,6 +197,7 @@ describe("minutes auth configuration", () => {
       "src/lib/minutes-session-token.ts",
       "src/lib/minutes-login-limit.ts",
       "src/app/api/minutes/auth/route.ts",
+      "src/lib/minutes-session-store.ts",
     ];
     for (const file of files) {
       const source = readFileSync(path.join(root, file), "utf8");

@@ -1,6 +1,8 @@
 export const MINUTES_IDLE_MS = 15 * 60 * 1000;
 export const MINUTES_EXPIRED_MESSAGE =
   "Your session expired due to inactivity. Please sign in again.";
+export const MINUTES_UNAVAILABLE_MESSAGE =
+  "Sign-in is temporarily unavailable. Try again in a moment.";
 export const MINUTES_ACTIVITY_STORAGE_KEY = "ym_minutes_activity";
 export const MINUTES_LOGOUT_STORAGE_KEY = "ym_minutes_idle_logout";
 export const MINUTES_EXPIRED_NOTICE_KEY = "ym_minutes_expired_notice";

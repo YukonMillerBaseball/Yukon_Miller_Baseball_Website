@@ -311,8 +311,14 @@ export function MinutesVault({
   }
 
   async function onLock() {
+    const response = await fetch("/api/minutes/auth", { method: "DELETE" }).catch(
+      () => null,
+    );
+    if (!response?.ok) {
+      setError("Could not sign out. Try again.");
+      return;
+    }
     publishMinutesLock();
-    await fetch("/api/minutes/auth", { method: "DELETE" });
     router.refresh();
   }
 

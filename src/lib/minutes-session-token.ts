@@ -1,11 +1,14 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { isIdleExpired } from "@/lib/minutes-session";
 
 export type MinutesRole = "view" | "admin";
 
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+const SESSION_VERSION = "2";
 
 export type MinutesAccess =
   | {
@@ -13,14 +16,23 @@ export type MinutesAccess =
       role: MinutesRole;
       lastActivity: number;
       absoluteExp: number;
+      sessionId: string;
     }
   | { state: "anonymous" }
-  | { state: "expired" };
+  | { state: "expired"; sessionId: string | null }
+  | { state: "unavailable" };
 
 export type MinutesAuthConfig = {
   password: string;
   adminPassword: string;
   secret: string;
+};
+
+type SessionClaims = {
+  role: MinutesRole;
+  lastActivity: number;
+  absoluteExp: number;
+  sessionId: string;
 };
 
 function envValue(name: string) {
@@ -36,8 +48,28 @@ export function minutesAuthConfig(): MinutesAuthConfig | null {
   return { password, adminPassword, secret };
 }
 
-function sign(payload: string, secret: string) {
-  return createHmac("sha256", secret).update(payload).digest("hex");
+function passwordForRole(config: MinutesAuthConfig, role: MinutesRole) {
+  return role === "admin" ? config.adminPassword : config.password;
+}
+
+/**
+ * Mix the current role password into the signing key. The fingerprint stays on
+ * the server, so a password change invalidates old signatures without putting
+ * a password or password hash in the cookie.
+ */
+function signingKey(config: MinutesAuthConfig, role: MinutesRole) {
+  const fingerprint = createHash("sha256")
+    .update("minutes-password-v1")
+    .update("\0")
+    .update(role)
+    .update("\0")
+    .update(passwordForRole(config, role))
+    .digest();
+  return createHmac("sha256", config.secret).update(fingerprint).digest();
+}
+
+function sign(payload: string, config: MinutesAuthConfig, role: MinutesRole) {
+  return createHmac("sha256", signingKey(config, role)).update(payload).digest("hex");
 }
 
 function safeEqual(a: string, b: string) {
@@ -56,65 +88,92 @@ function passwordMatches(input: string, expected: string) {
 
 function roleFrom(value: string): MinutesRole | null {
   if (value === "admin") return "admin";
-  if (value === "view" || value === "ok") return "view";
+  if (value === "view") return "view";
   return null;
+}
+
+export function createSessionId() {
+  const sessionId = randomBytes(32).toString("base64url");
+  if (!SESSION_ID_PATTERN.test(sessionId)) return null;
+  return sessionId;
 }
 
 function encodeSession(
   role: MinutesRole,
   absoluteExp: number,
   lastActivity: number,
-  secret: string,
+  sessionId: string,
+  config: MinutesAuthConfig,
 ) {
-  const payload = `${role}.${absoluteExp}.${lastActivity}`;
-  return `${payload}.${sign(payload, secret)}`;
+  const payload = `${SESSION_VERSION}.${role}.${absoluteExp}.${lastActivity}.${sessionId}`;
+  return `${payload}.${sign(payload, config, role)}`;
 }
 
-export function createMinutesSession(role: MinutesRole, now = Date.now()) {
+function readClaims(value: string | undefined): SessionClaims | null {
   const config = minutesAuthConfig();
-  if (!config) return null;
-  return encodeSession(role, now + SESSION_MS, now, config.secret);
+  if (!config || !value) return null;
+  const lastDot = value.lastIndexOf(".");
+  if (lastDot < 1) return null;
+  const payload = value.slice(0, lastDot);
+  const signature = value.slice(lastDot + 1);
+  const parts = payload.split(".");
+  if (parts.length !== 5 || parts[0] !== SESSION_VERSION) return null;
+
+  const role = roleFrom(parts[1] ?? "");
+  const absoluteExp = Number(parts[2]);
+  const lastActivity = Number(parts[3]);
+  const sessionId = parts[4] ?? "";
+  if (!role || !Number.isInteger(absoluteExp) || !Number.isInteger(lastActivity)) return null;
+  if (!SESSION_ID_PATTERN.test(sessionId)) return null;
+  if (absoluteExp - lastActivity > SESSION_MS) return null;
+  if (!safeEqual(signature, sign(payload, config, role))) return null;
+  return { role, absoluteExp, lastActivity, sessionId };
+}
+
+export function createMinutesSession(
+  role: MinutesRole,
+  sessionId: string,
+  now = Date.now(),
+) {
+  const config = minutesAuthConfig();
+  if (!config || !SESSION_ID_PATTERN.test(sessionId)) return null;
+  return encodeSession(role, now + SESSION_MS, now, sessionId, config);
 }
 
 export function refreshMinutesSession(
   role: MinutesRole,
   absoluteExp: number,
+  sessionId: string,
   now = Date.now(),
 ) {
   const config = minutesAuthConfig();
-  if (!config || !Number.isFinite(absoluteExp)) return null;
-  return encodeSession(role, absoluteExp, now, config.secret);
+  if (!config || !SESSION_ID_PATTERN.test(sessionId) || !Number.isInteger(absoluteExp)) {
+    return null;
+  }
+  if (now > absoluteExp || absoluteExp - now > SESSION_MS) return null;
+  return encodeSession(role, absoluteExp, now, sessionId, config);
+}
+
+export function readMinutesSessionIdentity(value: string | undefined) {
+  const claims = readClaims(value);
+  if (!claims) return null;
+  return {
+    sessionId: claims.sessionId,
+    role: claims.role,
+    absoluteExp: claims.absoluteExp,
+  };
 }
 
 export function readMinutesSession(
   value: string | undefined,
   now = Date.now(),
 ): MinutesAccess {
-  const config = minutesAuthConfig();
-  if (!config || !value) return { state: "anonymous" };
-  const lastDot = value.lastIndexOf(".");
-  if (lastDot < 1) return { state: "anonymous" };
-  const payload = value.slice(0, lastDot);
-  const signature = value.slice(lastDot + 1);
-  if (!safeEqual(signature, sign(payload, config.secret))) return { state: "anonymous" };
-
-  const parts = payload.split(".");
-  if (parts.length === 2) {
-    const role = roleFrom(parts[0] ?? "");
-    const exp = Number(parts[1]);
-    if (!role || !Number.isFinite(exp) || now > exp) return { state: "anonymous" };
-    return { state: "expired" };
+  const claims = readClaims(value);
+  if (!claims) return { state: "anonymous" };
+  if (now > claims.absoluteExp || isIdleExpired(claims.lastActivity, now)) {
+    return { state: "expired", sessionId: claims.sessionId };
   }
-  if (parts.length !== 3) return { state: "anonymous" };
-
-  const role = roleFrom(parts[0] ?? "");
-  const absoluteExp = Number(parts[1]);
-  const lastActivity = Number(parts[2]);
-  if (!role || !Number.isFinite(absoluteExp) || !Number.isFinite(lastActivity)) {
-    return { state: "anonymous" };
-  }
-  if (now > absoluteExp || isIdleExpired(lastActivity, now)) return { state: "expired" };
-  return { state: "active", role, lastActivity, absoluteExp };
+  return { state: "active", ...claims };
 }
 
 export function resolveMinutesRole(input: unknown): MinutesRole | null {
