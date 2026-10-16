@@ -1,4 +1,5 @@
 import { privateJson, requireMinutes } from "@/lib/minutes-auth";
+import { mediaRequestAllowed } from "@/lib/media-origin";
 import {
   createMinutesUploadUrl,
   findMinutesRecord,
@@ -27,6 +28,10 @@ function conflictResponse(name: string, etag: string) {
 }
 
 export async function POST(request: Request) {
+  if (!mediaRequestAllowed(request)) {
+    return privateJson({ error: "Could not save that file." }, { status: 403 });
+  }
+
   const { response } = await requireMinutes({
     admin: true,
     touch: true,

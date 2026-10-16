@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 43217",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./scripts/register-test-alias.mjs --test src/lib/minutes-session-token.test.ts src/lib/minutes-session-revocation.test.ts src/lib/minutes-login-policy.test.ts src/lib/security-headers.test.ts src/lib/schedule-district.test.ts src/lib/drive-access-check.test.ts src/lib/drive-backup.test.ts src/lib/drive-backup-schedule.test.ts"
+    "test": "node --experimental-strip-types --experimental-test-module-mocks --import ./scripts/register-test-alias.mjs --test src/lib/minutes-session-token.test.ts src/lib/minutes-session-revocation.test.ts src/lib/minutes-login-policy.test.ts src/lib/security-headers.test.ts src/lib/schedule-district.test.ts src/lib/drive-access-check.test.ts src/lib/drive-backup.test.ts src/lib/drive-backup-schedule.test.ts src/lib/minutes-upload-origin.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
