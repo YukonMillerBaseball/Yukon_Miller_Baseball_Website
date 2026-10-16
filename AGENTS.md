@@ -83,6 +83,16 @@ Unless the task explicitly requests a change, preserve:
 
 Never perform destructive database or storage changes without explicit approval and a verified recovery plan.
 
+## Website photography
+
+Before committing a new news, roster, or facility photograph:
+
+1. Run `npm run images:optimize`.
+2. Run `npm run images:check`.
+3. Do not commit a photograph that the check says needs attention.
+
+Do not change an existing image unless the user explicitly approves that file. Do not modify Yukon logos, sponsor logos, or other branding. Keep filenames, paths, and image references. PNG graphics and transparent assets stay unchanged. The permanent instructions are in `.cursor/rules/website-photography.mdc`.
+
 ## Report after completion
 
 Report:

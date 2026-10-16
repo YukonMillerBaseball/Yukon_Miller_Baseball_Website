@@ -7,9 +7,10 @@ type PhotoSlotProps = {
   className?: string;
   src?: string;
   alt?: string;
+  sizes?: string;
 };
 
-export function PhotoSlot({ label, className, src, alt }: PhotoSlotProps) {
+export function PhotoSlot({ label, className, src, alt, sizes }: PhotoSlotProps) {
   if (src) {
     return (
       <div className={cn("relative overflow-hidden bg-zinc-900", className)}>
@@ -17,6 +18,7 @@ export function PhotoSlot({ label, className, src, alt }: PhotoSlotProps) {
           src={src}
           alt={alt ?? label}
           fill
+          {...(sizes ? { sizes } : {})}
           className="object-contain object-center"
         />
       </div>

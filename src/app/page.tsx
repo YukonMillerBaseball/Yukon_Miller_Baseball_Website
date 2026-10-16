@@ -117,6 +117,7 @@ export default function HomePage() {
                   <ArticleCardImage
                     image={featured.image}
                     variant="banner"
+                    sizes="(max-width: 1023px) calc(100vw - 2rem), 680px"
                     className="h-56 w-full object-cover sm:h-72"
                   />
                 ) : null}
@@ -143,6 +144,7 @@ export default function HomePage() {
                       <div className="relative h-32 w-full shrink-0 lg:h-auto lg:w-36">
                         <ArticleCardImage
                           image={article.image}
+                          sizes="(max-width: 1023px) calc(100vw - 2rem), 144px"
                           className="absolute inset-0 h-full w-full"
                         />
                       </div>

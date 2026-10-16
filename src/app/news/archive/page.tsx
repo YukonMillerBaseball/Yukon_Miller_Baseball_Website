@@ -69,6 +69,7 @@ export default function NewsArchivePage() {
                     <ArticleCardImage
                       image={article.image}
                       variant="card"
+                      sizes="(max-width: 639px) calc(100vw - 4rem), 128px"
                       className="mt-4 h-32 w-full rounded-xl object-cover sm:mt-0 sm:h-24 sm:w-32 sm:shrink-0"
                     />
                   ) : null}
