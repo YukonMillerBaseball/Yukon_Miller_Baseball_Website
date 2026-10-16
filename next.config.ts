@@ -131,6 +131,14 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/api/backup/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Cache-Control", value: "private, no-store" },
+          PRIVATE_REFERRER_POLICY,
+        ],
+      },
+      {
         source: "/favicon.ico",
         headers: [
           {
