@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import {
+  PRIVATE_REFERRER_POLICY,
+  siteSecurityHeaders,
+} from "./src/lib/security-headers";
 
 const packetHeaders = [
   {
@@ -70,6 +74,18 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: siteSecurityHeaders,
+      },
+      {
+        source: "/api/minutes/file",
+        headers: [PRIVATE_REFERRER_POLICY],
+      },
+      {
+        source: "/api/media/cover",
+        headers: [PRIVATE_REFERRER_POLICY],
+      },
       {
         source: "/2026-2027-sponsorship-packet.pdf",
         headers: packetHeaders,

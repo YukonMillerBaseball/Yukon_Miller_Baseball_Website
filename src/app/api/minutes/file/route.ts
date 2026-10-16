@@ -1,4 +1,5 @@
 import { privateJson, privateNoStore, requireMinutes } from "@/lib/minutes-auth";
+import { applyProtectedFileHeaders } from "@/lib/security-headers";
 import {
   createMinutesDownloadUrl,
   deleteMinutes,
@@ -39,7 +40,7 @@ async function inlinePdf(name: string) {
     return privateJson({ error: "File not found." }, { status: 404 });
   }
 
-  return privateNoStore(new NextResponse(file.body, {
+  return applyProtectedFileHeaders(privateNoStore(new NextResponse(file.body, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${name.replace(/"/g, "")}"`,
@@ -48,7 +49,7 @@ async function inlinePdf(name: string) {
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "frame-ancestors 'self'",
     },
-  }));
+  })));
 }
 
 export async function GET(request: Request) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
   if (minutesUsesBlob()) {
     try {
       const url = await createMinutesDownloadUrl(name);
-      return privateNoStore(NextResponse.redirect(url, 302));
+      return applyProtectedFileHeaders(privateNoStore(NextResponse.redirect(url, 302)));
     } catch {
       // Fall through to a proxied download.
     }
@@ -88,13 +89,13 @@ export async function GET(request: Request) {
           ? "application/msword"
           : "application/octet-stream";
 
-  return privateNoStore(new NextResponse(Buffer.from(bytes), {
+  return applyProtectedFileHeaders(privateNoStore(new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": type,
       "Content-Disposition": `attachment; filename="${name.replace(/"/g, "")}"`,
       "Cache-Control": "private, no-store",
     },
-  }));
+  })));
 }
 
 export async function DELETE(request: Request) {
