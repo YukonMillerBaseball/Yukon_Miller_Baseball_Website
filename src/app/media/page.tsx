@@ -31,7 +31,7 @@ export default async function MediaPage() {
         kicker="Library"
         title="Media"
         lede="Shared photos, video, and albums for players, parents, and authorized members."
-        className="py-5 sm:py-10"
+        className="max-sm:min-h-0 py-5 sm:py-10"
       />
       <div className="mx-auto w-full min-w-0 max-w-6xl overflow-x-clip px-4 py-4 sm:px-6 sm:py-10">
         {access.state === "active" ? (

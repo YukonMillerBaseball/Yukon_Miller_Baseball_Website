@@ -1,4 +1,5 @@
 import { OrganizationInfo } from "@/components/organization-info";
+import { PageHero } from "@/components/page-hero";
 import { buttonVariants } from "@/components/ui/button";
 import { hrc, officers, tcaStore } from "@/lib/support";
 import { publicPageSeo } from "@/lib/seo";
@@ -15,24 +16,7 @@ export default function SupportPage() {
 
   return (
     <div>
-      <header className="border-b border-white/8 bg-black">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-          <p className="text-[0.7rem] font-semibold tracking-[0.24em] text-red-400 uppercase">
-            Boosters
-          </p>
-          <h1 className="font-heading mt-2 text-4xl tracking-wide text-white uppercase sm:text-5xl">
-            Home Run Club
-          </h1>
-          {hrc.about.map((paragraph) => (
-            <p
-              key={paragraph}
-              className="mt-4 max-w-2xl text-base leading-7 text-zinc-400"
-            >
-              {paragraph}
-            </p>
-          ))}
-        </div>
-      </header>
+      <PageHero kicker="Boosters" title="Home Run Club" lede={hrc.about} />
 
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 sm:space-y-5 sm:px-6 sm:py-10">
         <section className="rounded-2xl border border-white/10 bg-zinc-950 p-5 sm:p-6">
