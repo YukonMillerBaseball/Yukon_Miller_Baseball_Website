@@ -19,7 +19,10 @@ const COVER_FILE =
   /^media-library\/covers\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|png|webp)$/;
 const BACKUP_ID = /^website-backup-\d{4}-\d{2}-\d{2}T\d{6}Z-[a-f0-9]{8}$/;
 const RECEIPT_NAME = /^[a-f0-9]{64}\.json$/;
+const SCHEDULE_RECORD_NAME = /^record-\d{8}T\d{6}Z-[a-f0-9]{8}\.json$/;
+const BACKUP_ATTENTION_NAME = /^attention-\d{8}T\d{6}Z-[a-f0-9]{8}\.json$/;
 const FOLDER_NAMES = new Set(["minutes", "media-library", "covers", "receipts", "sessions"]);
+export const SCHEDULE_RECORD_FOLDER = "schedule-records";
 
 export type BackupFailureCode =
   | "configuration"
@@ -339,11 +342,18 @@ export function driveChildQuery(parentId: string, name: string) {
 }
 
 export function isAllowedBackupFolderName(name: string) {
-  return FOLDER_NAMES.has(name) || BACKUP_ID.test(name);
+  return (
+    FOLDER_NAMES.has(name) || name === SCHEDULE_RECORD_FOLDER || BACKUP_ID.test(name)
+  );
 }
 
 export function isAllowedJsonName(name: string) {
-  return name === "manifest.json" || RECEIPT_NAME.test(name);
+  return (
+    name === "manifest.json" ||
+    RECEIPT_NAME.test(name) ||
+    SCHEDULE_RECORD_NAME.test(name) ||
+    BACKUP_ATTENTION_NAME.test(name)
+  );
 }
 
 function isDriveName(name: string) {
@@ -781,8 +791,8 @@ function manifestDocument(backupId: string, verified: VerifiedFile[], totalBytes
   };
 }
 
-function sealedStatus(text: string, backupId: string): BackupPublicStatus | null {
-  const manifest = manifestDocument(backupId, [], 0);
+export function readVerifiedManifestSources(text: string, backupId: string): BackupSource[] | null {
+  if (!isBackupId(backupId)) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -791,10 +801,11 @@ function sealedStatus(text: string, backupId: string): BackupPublicStatus | null
   }
   if (!parsed || typeof parsed !== "object") return null;
   const record = parsed as Record<string, unknown>;
-  if (record.backupId !== backupId || record.startedAt !== manifest.startedAt) return null;
+  if (record.backupId !== backupId || record.startedAt !== backupStartedAt(backupId)) return null;
   if (record.status !== "complete" || record.verification !== "verified") return null;
   if (record.sourceCheck !== "etag" || !Array.isArray(record.files)) return null;
   if (record.filesVerified !== record.files.length) return null;
+  const sources: BackupSource[] = [];
   let total = 0;
   for (const item of record.files) {
     if (!item || typeof item !== "object") return null;
@@ -810,14 +821,27 @@ function sealedStatus(text: string, backupId: string): BackupPublicStatus | null
       return null;
     }
     total += row.size;
+    sources.push({
+      path: row.path,
+      size: row.size,
+      etag: row.etag,
+      uploadedAt: row.uploadedAt,
+    });
   }
   if (record.totalBytes !== total) return null;
+  return sources;
+}
+
+function sealedStatus(text: string, backupId: string): BackupPublicStatus | null {
+  const sources = readVerifiedManifestSources(text, backupId);
+  if (!sources) return null;
+  const total = sources.reduce((sum, source) => sum + source.size, 0);
   return {
     ok: true,
     status: "complete",
     backupId,
-    filesVerified: record.files.length,
-    filesTotal: record.files.length,
+    filesVerified: sources.length,
+    filesTotal: sources.length,
     bytesVerified: total,
     totalBytes: total,
   };

@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { minutesAccess, privateJson } from "@/lib/minutes-auth";
 import { mediaRequestAllowed } from "@/lib/media-origin";
 import {
@@ -15,6 +16,14 @@ import {
 } from "@/lib/drive-backup";
 import { createBackupBlobReader } from "@/lib/drive-backup-blob";
 import { createBackupDrive } from "@/lib/drive-backup-drive";
+import {
+  BACKUP_BUSY_ERROR,
+  acquireBackupLease,
+  createBackupLockStore,
+  releaseBackupLease,
+  type BackupLockHandle,
+  type BackupLockStore,
+} from "@/lib/drive-backup-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,11 +65,25 @@ export async function POST(request: Request) {
     return denied({ ok: false, status: "failed", error: "Backup is not configured." }, 503);
   }
 
+  let lockStore: BackupLockStore | null = null;
+  let held: BackupLockHandle | null = null;
   try {
+    lockStore = await createBackupLockStore();
     const token = await mintDriveAccessToken(config);
+    const drive = createBackupDrive(token);
+    const lease = await acquireBackupLease({
+      store: lockStore,
+      now: new Date(),
+      holder: randomBytes(4).toString("hex"),
+    });
+    if (lease === "busy") {
+      console.error("backup:busy");
+      return denied({ ok: false, status: "failed", error: BACKUP_BUSY_ERROR }, 409);
+    }
+    held = lease;
     const result = await advanceBackup({
       destinationId: config.folderId,
-      drive: createBackupDrive(token),
+      drive,
       blobs: await createBackupBlobReader(),
       backupId: "backupId" in decision ? decision.backupId : undefined,
       deadline: Date.now() + BACKUP_SLICE_MS,
@@ -74,5 +97,7 @@ export async function POST(request: Request) {
     const failure = toBackupFailure(normalized);
     console.error(`backup:${failure.body.status}`);
     return denied(failure.body, failure.status);
+  } finally {
+    if (lockStore && held) await releaseBackupLease({ store: lockStore, handle: held });
   }
 }
