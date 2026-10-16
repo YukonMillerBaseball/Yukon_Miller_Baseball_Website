@@ -76,7 +76,7 @@ function GameMatchup({ game, className }: { game: Game; className?: string }) {
 
   return (
     <span className={cn("inline-flex min-w-0 items-baseline gap-1 sm:gap-2", className)}>
-      <span className="shrink-0 text-[0.7rem] tracking-[0.16em] text-zinc-500 uppercase">
+      <span className="w-[1.4em] shrink-0 text-left text-[0.7rem] tracking-[0.16em] text-zinc-500 uppercase sm:w-auto">
         {versusLabel(game.location)}
       </span>
       {!href || !field ? (
@@ -168,7 +168,7 @@ function gameMaps(game: Game) {
 function MapsPin({ game }: { game: Game }) {
   const maps = gameMaps(game);
   if (!maps) {
-    return <span className="size-8 shrink-0 sm:hidden" aria-hidden />;
+    return <span className="size-8 shrink-0 self-center sm:hidden" aria-hidden />;
   }
 
   return (
@@ -176,7 +176,7 @@ function MapsPin({ game }: { game: Game }) {
       href={maps.href}
       target="_blank"
       rel="noreferrer"
-      className="flex size-8 shrink-0 items-center justify-end text-zinc-500 sm:hidden"
+      className="flex size-8 shrink-0 items-center justify-end self-center text-zinc-500 sm:hidden"
       aria-label={`Directions to ${maps.field.name}`}
     >
       <MapPin className="size-[1.15rem]" strokeWidth={1.5} aria-hidden />
@@ -313,7 +313,7 @@ function GameDetail({
       {game.venue ? (
         <p
           className={cn(
-            "text-[0.7rem] tracking-[0.12em] text-zinc-500",
+            "text-[0.7rem] tracking-[0.12em] text-zinc-500 max-sm:pl-[calc(1.4em+0.25rem)] sm:pl-0",
             timeOnMobile ? "mt-0.5" : "mt-0.5 max-sm:mt-0",
           )}
         >
@@ -607,7 +607,7 @@ function TeamList({
                       date={day.date}
                       time={game.time ?? ""}
                     />
-                    <div className="min-w-0 overflow-hidden sm:contents">
+                    <div className="min-w-0 self-center overflow-hidden sm:contents">
                       <p className="font-heading min-w-0 text-[1.35rem] leading-none tracking-normal uppercase sm:text-xl sm:tracking-wide">
                         <GameMatchup game={game} />
                       </p>
