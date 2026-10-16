@@ -1,4 +1,5 @@
 import { privateJson, privateNoStore, requireMinutes } from "@/lib/minutes-auth";
+import { applyProtectedFileHeaders } from "@/lib/security-headers";
 import { isSafeCoverName } from "@/lib/media-catalog";
 import { openMediaCover } from "@/lib/media-store";
 import { NextResponse } from "next/server";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     return privateJson({ error: "Cover not found." }, { status: 404 });
   }
 
-  return privateNoStore(new NextResponse(cover.body, {
+  return applyProtectedFileHeaders(privateNoStore(new NextResponse(cover.body, {
     headers: {
       "Content-Type": cover.contentType,
       "Content-Length": String(cover.size),
@@ -28,5 +29,5 @@ export async function GET(request: Request) {
       "X-Content-Type-Options": "nosniff",
       "Content-Disposition": "inline",
     },
-  }));
+  })));
 }
