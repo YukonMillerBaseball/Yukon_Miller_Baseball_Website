@@ -72,6 +72,47 @@ function SponsorHref({ sponsor }: { sponsor: Sponsor }) {
   );
 }
 
+function LeadSponsor({
+  sponsor,
+  kicker,
+  presenting = false,
+}: {
+  sponsor: Sponsor;
+  kicker: string;
+  presenting?: boolean;
+}) {
+  return (
+    <>
+      <div className="sm:hidden">
+        <p className="mb-3 text-[0.65rem] font-semibold tracking-[0.22em] text-red-400 uppercase">
+          {kicker}
+        </p>
+        <SponsorTile sponsor={sponsor} featured />
+      </div>
+      <div className="hidden sm:block">
+        {presenting ? (
+          <article className="relative overflow-hidden rounded-2xl border border-red-700/40 bg-[linear-gradient(135deg,#2a0b12_0%,#0a0a0c_55%)] p-6 sm:p-10">
+            <p className="text-[0.68rem] font-semibold tracking-[0.28em] text-red-400 uppercase">
+              {kicker}
+            </p>
+            <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-center">
+              <Mark sponsor={sponsor} size="lg" />
+              <div>
+                <h3 className="font-heading text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
+                  {sponsor.name}
+                </h3>
+              </div>
+            </div>
+            <SponsorHref sponsor={sponsor} />
+          </article>
+        ) : (
+          <BannerPartner sponsor={sponsor} kicker={kicker} />
+        )}
+      </div>
+    </>
+  );
+}
+
 function BannerPartner({
   sponsor,
   kicker,
@@ -257,27 +298,16 @@ export function SponsorBoard() {
 
         <div className="space-y-10 px-5 py-8 sm:px-8">
           {presenting.map((sponsor) => (
-            <article
+            <LeadSponsor
               key={sponsor.id}
-              className="relative overflow-hidden rounded-2xl border border-red-700/40 bg-[linear-gradient(135deg,#2a0b12_0%,#0a0a0c_55%)] p-6 sm:p-10"
-            >
-              <p className="text-[0.68rem] font-semibold tracking-[0.28em] text-red-400 uppercase">
-                Presenting partner
-              </p>
-              <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-center">
-                <Mark sponsor={sponsor} size="lg" />
-                <div>
-                  <h3 className="font-heading text-4xl leading-none tracking-wide text-white uppercase sm:text-6xl">
-                    {sponsor.name}
-                  </h3>
-                </div>
-              </div>
-              <SponsorHref sponsor={sponsor} />
-            </article>
+              sponsor={sponsor}
+              kicker="Presenting partner"
+              presenting
+            />
           ))}
 
           {scoreboard.map((sponsor) => (
-            <BannerPartner
+            <LeadSponsor
               key={sponsor.id}
               sponsor={sponsor}
               kicker="Scoreboard · title partner"
@@ -285,11 +315,7 @@ export function SponsorBoard() {
           ))}
 
           {cycle.map((sponsor) => (
-            <BannerPartner
-              key={sponsor.id}
-              sponsor={sponsor}
-              kicker="The Cycle"
-            />
+            <LeadSponsor key={sponsor.id} sponsor={sponsor} kicker="The Cycle" />
           ))}
           <TierBlock
             tierId="grand-slam"

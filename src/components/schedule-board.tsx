@@ -336,14 +336,12 @@ export function ScheduleBoard() {
               <h1 className="font-heading col-start-1 row-start-2 text-4xl tracking-wide text-white uppercase sm:text-5xl sm:whitespace-nowrap">
                 {view === "master" ? "Schedule" : teamLabel(view)}
               </h1>
-              {view === "master" ? null : (
-                <p className="relative col-start-2 row-start-2 font-heading text-3xl leading-none tracking-wide text-white sm:hidden">
-                  {standing.display}
-                  <span className="absolute top-full right-0 mt-1.5 text-[0.58rem] font-semibold leading-none tracking-[0.22em] text-zinc-500 uppercase">
-                    Record
-                  </span>
-                </p>
-              )}
+              <p className="relative col-start-2 row-start-2 font-heading text-3xl leading-none tracking-wide text-white sm:hidden">
+                {standing.display}
+                <span className="absolute top-full right-0 mt-1.5 text-[0.58rem] font-semibold leading-none tracking-[0.22em] text-zinc-500 uppercase">
+                  Record
+                </span>
+              </p>
             </div>
             <p className="mt-7 max-w-2xl text-base leading-7 text-zinc-400 sm:mt-4">
               Keep up with the Millers all season long.
@@ -353,12 +351,7 @@ export function ScheduleBoard() {
               showDistrict={view === "varsity" || view === "master"}
             />
           </div>
-          <div
-            className={cn(
-              "flex-col gap-2.5 sm:flex sm:items-end sm:pt-7",
-              view === "master" ? "flex items-end" : "hidden items-start",
-            )}
-          >
+          <div className="hidden flex-col gap-2.5 sm:flex sm:items-end sm:pt-7">
             <StatBlock
               value={standing.display}
               label={view === "master" ? teamLabel(standing.team) : "Record"}

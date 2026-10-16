@@ -9,24 +9,22 @@ export function CommitBoard() {
       <header className="relative overflow-hidden border-b border-white/10 bg-[linear-gradient(180deg,#1a0a0d_0%,#0a0a0c_100%)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(200,16,46,0.28),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#c8102e] to-transparent" />
-        <div className="relative flex flex-col gap-5 px-5 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-7">
-          <div>
-            <p className="text-[0.68rem] font-semibold tracking-[0.32em] text-red-400 uppercase">
+        <div className="relative flex items-start justify-between gap-3 px-5 py-3.5 sm:items-end sm:px-7 sm:py-6">
+          <div className="min-w-0">
+            <p className="text-[0.62rem] font-semibold tracking-[0.22em] text-red-400 uppercase sm:text-[0.68rem] sm:tracking-[0.32em]">
               Yukon Miller Baseball
             </p>
-            <h2 className="font-heading mt-2 text-4xl leading-none tracking-wide text-white uppercase sm:text-5xl">
+            <h2 className="font-heading mt-1.5 text-4xl leading-none tracking-wide text-white uppercase sm:mt-2 sm:text-5xl">
               Commit Board
             </h2>
           </div>
-          <div className="flex items-center gap-4 border-l border-white/10 pl-4 sm:border-l-0 sm:pl-0">
-            <div>
-              <p className="font-heading text-4xl leading-none text-white">
-                {String(commits.length).padStart(2, "0")}
-              </p>
-              <p className="mt-1 text-[0.65rem] tracking-[0.2em] text-zinc-500 uppercase">
-                Committed
-              </p>
-            </div>
+          <div className="shrink-0 pt-0.5 text-right sm:pt-0">
+            <p className="font-heading text-xl leading-none text-zinc-400 sm:text-4xl sm:text-white">
+              {String(commits.length).padStart(2, "0")}
+            </p>
+            <p className="mt-1 text-[0.52rem] tracking-[0.16em] text-zinc-500 uppercase sm:text-[0.65rem] sm:tracking-[0.2em]">
+              Committed
+            </p>
           </div>
         </div>
         <div className="relative hidden grid-cols-[4.5rem_minmax(0,1fr)_14rem] gap-4 border-t border-white/8 px-7 py-2 text-[0.62rem] tracking-[0.2em] text-zinc-500 uppercase md:grid">
