@@ -13,6 +13,7 @@ import {
   LoginLimitUnavailable,
   pruneExpiredRateLimits,
   reserveLoginSlot,
+  settleLoginSlot,
 } from "@/lib/minutes-login-limit";
 import { MINUTES_EXPIRED_MESSAGE, MINUTES_IDLE_MS } from "@/lib/minutes-session";
 import { cookies } from "next/headers";
@@ -72,9 +73,15 @@ export async function POST(request: Request) {
     if (error instanceof LoginLimitUnavailable) return unavailable();
     throw error;
   }
-  if (slot.limited) return tooMany(slot.retryAfterSeconds);
+  if (slot.limited || !slot.reservation) return tooMany(slot.retryAfterSeconds);
 
   const role = resolveMinutesRole(password);
+  try {
+    await settleLoginSlot(request, slot.reservation, role ? "success" : "failure");
+  } catch (error) {
+    if (error instanceof LoginLimitUnavailable) return unavailable();
+    throw error;
+  }
   if (!role) {
     return privateJson({ error: "Wrong password." }, { status: 401 });
   }

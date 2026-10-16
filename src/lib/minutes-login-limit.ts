@@ -19,9 +19,11 @@ import {
   reserveLoginAttempt,
   requestClientIp,
   selectExpiredRateCounters,
+  settleLoginAttempt,
   type LoginAttemptSnapshot,
   type LoginAttemptState,
   type LoginAttemptStore,
+  type LoginReservation,
 } from "@/lib/minutes-login-policy";
 import { minutesAuthConfig } from "@/lib/minutes-session-token";
 
@@ -80,22 +82,31 @@ async function readStream(stream: ReadableStream<Uint8Array>) {
 }
 
 function parseState(value: string): LoginAttemptState {
-  let parsed: { failures?: unknown; windowStart?: unknown };
+  let parsed: { failures?: unknown; pending?: unknown; windowStart?: unknown };
   try {
-    parsed = JSON.parse(value) as { failures?: unknown; windowStart?: unknown };
+    parsed = JSON.parse(value) as {
+      failures?: unknown;
+      pending?: unknown;
+      windowStart?: unknown;
+    };
   } catch {
     throw new LoginLimitUnavailable();
   }
+  const pending = parsed.pending === undefined ? 0 : parsed.pending;
   if (
     typeof parsed.failures !== "number" ||
     !Number.isInteger(parsed.failures) ||
-    parsed.failures < 1 ||
+    parsed.failures < 0 ||
+    typeof pending !== "number" ||
+    !Number.isInteger(pending) ||
+    pending < 0 ||
+    (parsed.failures < 1 && pending < 1) ||
     typeof parsed.windowStart !== "number" ||
     !Number.isFinite(parsed.windowStart)
   ) {
     throw new LoginLimitUnavailable();
   }
-  return { failures: parsed.failures, windowStart: parsed.windowStart };
+  return { failures: parsed.failures, pending, windowStart: parsed.windowStart };
 }
 
 export function classifyBlobRead(
@@ -193,13 +204,34 @@ export { LoginLimitUnavailable };
 function attemptKey(request: Request) {
   const config = minutesAuthConfig();
   if (!config) throw new LoginLimitUnavailable();
-  return loginAttemptKey(requestClientIp(request), config.secret);
+  const ip = requestClientIp(request, { platform: Boolean(runtimeEnv("VERCEL")) });
+  if (!ip) throw new LoginLimitUnavailable();
+  return loginAttemptKey(ip, config.secret);
+}
+
+function attemptStore() {
+  const store = storeForRuntime();
+  if (!store) throw new LoginLimitUnavailable();
+  return store;
 }
 
 export async function reserveLoginSlot(request: Request, now = Date.now()) {
-  const store = storeForRuntime();
-  if (!store) throw new LoginLimitUnavailable();
-  return reserveLoginAttempt(store, attemptKey(request), now);
+  return reserveLoginAttempt(attemptStore(), attemptKey(request), now);
+}
+
+export async function settleLoginSlot(
+  request: Request,
+  reservation: LoginReservation,
+  outcome: "failure" | "success",
+  now = Date.now(),
+) {
+  await settleLoginAttempt(
+    attemptStore(),
+    attemptKey(request),
+    reservation,
+    outcome,
+    now,
+  );
 }
 
 function sweepMemory(now: number) {
