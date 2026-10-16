@@ -4,7 +4,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { MINUTES_EXPIRED_MESSAGE, MINUTES_IDLE_MS } from "@/lib/minutes-session";
 import {
-  createMinutesSession,
+  issueStoredSession,
+  pruneExpiredSessions,
+  resolveStoredSession,
+  revokePresentedSession,
+  sessionRegistry,
+} from "@/lib/minutes-session-store";
+import {
   minutesAuthConfig,
   readMinutesSession,
   refreshMinutesSession,
@@ -16,7 +22,7 @@ import {
 export const MINUTES_COOKIE = "ym_minutes";
 export const PRIVATE_NO_STORE = "private, no-store";
 export type { MinutesAccess, MinutesRole };
-export { createMinutesSession, minutesAuthConfig, readMinutesSession, resolveMinutesRole };
+export { minutesAuthConfig, pruneExpiredSessions, readMinutesSession, resolveMinutesRole };
 
 export function privateJson(
   body: unknown,
@@ -32,6 +38,7 @@ export function privateNoStore<T extends Response>(response: T) {
   return response;
 }
 
+/** Signature check only. Access control must go through minutesAccess. */
 export function minutesRoleFromSession(
   value: string | undefined,
   now = Date.now(),
@@ -56,7 +63,22 @@ async function cookieValue() {
 }
 
 export async function minutesAccess(now = Date.now()) {
-  return readMinutesSession(await cookieValue(), now);
+  const token = await cookieValue();
+  const access = await resolveStoredSession(token, sessionRegistry(), now);
+  if (access.state === "unavailable") return access;
+  if (token && access.state !== "active") await clearMinutesCookie();
+  return access;
+}
+
+export async function issueMinutesSession(role: MinutesRole, now = Date.now()) {
+  return issueStoredSession(role, sessionRegistry(), now);
+}
+
+export async function revokeMinutesSession() {
+  const revoked = await revokePresentedSession(await cookieValue(), sessionRegistry());
+  if (revoked !== "ok") return "unavailable" as const;
+  await clearMinutesCookie();
+  return "ok" as const;
 }
 
 export async function clearMinutesCookie() {
@@ -68,8 +90,13 @@ export async function recordMinutesActivity(now = Date.now()) {
   const access = await minutesAccess(now);
   if (access.state !== "active") return access;
   const remainingMs = access.absoluteExp - now;
-  if (remainingMs <= 0) return { state: "expired" } as const;
-  const session = refreshMinutesSession(access.role, access.absoluteExp, now);
+  if (remainingMs <= 0) return { state: "expired", sessionId: access.sessionId } as const;
+  const session = refreshMinutesSession(
+    access.role,
+    access.absoluteExp,
+    access.sessionId,
+    now,
+  );
   if (!session) return { state: "anonymous" } as const;
   const jar = await cookies();
   jar.set(
@@ -82,10 +109,14 @@ export async function recordMinutesActivity(now = Date.now()) {
     role: access.role,
     lastActivity: now,
     absoluteExp: access.absoluteExp,
+    sessionId: access.sessionId,
   };
 }
 
 export function minutesDeniedResponse(access: MinutesAccess) {
+  if (access.state === "unavailable") {
+    return privateJson({ error: "Sign-in is unavailable." }, { status: 503 });
+  }
   if (access.state === "expired") {
     return privateJson(
       { error: MINUTES_EXPIRED_MESSAGE, expired: true },
@@ -102,7 +133,6 @@ export async function requireMinutes(options?: {
 }) {
   let access = await minutesAccess();
   if (access.state !== "active") {
-    if (access.state === "expired") await clearMinutesCookie();
     return { access, response: minutesDeniedResponse(access) };
   }
   if (options?.admin && access.role !== "admin") {
@@ -117,7 +147,6 @@ export async function requireMinutes(options?: {
   if (options?.touch) {
     const refreshed = await recordMinutesActivity();
     if (refreshed.state !== "active") {
-      if (refreshed.state === "expired") await clearMinutesCookie();
       return { access: refreshed, response: minutesDeniedResponse(refreshed) };
     }
     access = refreshed;

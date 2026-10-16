@@ -3,7 +3,7 @@ import { MinutesSession } from "@/components/minutes-session";
 import { PageHero } from "@/components/page-hero";
 import { minutesAccess } from "@/lib/minutes-auth";
 import { listMinutesLibrary } from "@/lib/minutes-store";
-import { MINUTES_EXPIRED_MESSAGE } from "@/lib/minutes-session";
+import { MINUTES_EXPIRED_MESSAGE, MINUTES_UNAVAILABLE_MESSAGE } from "@/lib/minutes-session";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,13 @@ export default async function MinutesPage() {
           />
         ) : (
           <MinutesLogin
-            notice={access.state === "expired" ? MINUTES_EXPIRED_MESSAGE : undefined}
+            notice={
+              access.state === "expired"
+                ? MINUTES_EXPIRED_MESSAGE
+                : access.state === "unavailable"
+                  ? MINUTES_UNAVAILABLE_MESSAGE
+                  : undefined
+            }
           />
         )}
       </div>

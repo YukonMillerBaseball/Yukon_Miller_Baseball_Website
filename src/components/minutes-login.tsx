@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@/components/ui/button";
-import { MINUTES_EXPIRED_NOTICE_KEY } from "@/lib/minutes-session";
+import { MINUTES_EXPIRED_MESSAGE, MINUTES_EXPIRED_NOTICE_KEY } from "@/lib/minutes-session";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
@@ -35,7 +35,7 @@ export function MinutesLogin({
   const sessionNotice = dismissed ? "" : notice || storedNotice;
 
   useEffect(() => {
-    if (!sessionNotice) return;
+    if (sessionNotice !== MINUTES_EXPIRED_MESSAGE) return;
     void fetch("/api/minutes/auth", { method: "DELETE" });
   }, [sessionNotice]);
 

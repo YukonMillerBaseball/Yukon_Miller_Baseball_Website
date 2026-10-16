@@ -1,12 +1,13 @@
 import {
-  clearMinutesCookie,
-  createMinutesSession,
+  issueMinutesSession,
   MINUTES_COOKIE,
   minutesAccess,
   minutesAuthConfig,
   minutesCookieOptions,
   privateJson,
+  pruneExpiredSessions,
   resolveMinutesRole,
+  revokeMinutesSession,
 } from "@/lib/minutes-auth";
 import {
   LoginLimitUnavailable,
@@ -35,8 +36,8 @@ function tooMany(retryAfterSeconds: number) {
 
 export async function GET() {
   const access = await minutesAccess();
+  if (access.state === "unavailable") return unavailable();
   if (access.state === "expired") {
-    await clearMinutesCookie();
     return privateJson(
       { ok: false, admin: false, expired: true, error: MINUTES_EXPIRED_MESSAGE },
       { status: 401 },
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   }
 
   if (!minutesAuthConfig()) return unavailable();
-  after(() => pruneExpiredRateLimits());
+  after(() => Promise.all([pruneExpiredRateLimits(), pruneExpiredSessions()]));
 
   let slot;
   try {
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
     return privateJson({ error: "Wrong password." }, { status: 401 });
   }
 
-  const session = createMinutesSession(role);
+  const session = await issueMinutesSession(role);
   if (!session) return unavailable();
 
   const jar = await cookies();
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  await clearMinutesCookie();
+  const revoked = await revokeMinutesSession();
+  if (revoked !== "ok") return unavailable();
   return privateJson({ ok: true });
 }

@@ -74,6 +74,13 @@ export function MinutesSessionGuard({
     async (reason: "idle" | "lock") => {
       if (ending.current) return;
       ending.current = true;
+      const response = await fetch("/api/minutes/auth", { method: "DELETE" }).catch(
+        () => null,
+      );
+      if (!response?.ok) {
+        ending.current = false;
+        return;
+      }
       if (reason === "idle") {
         sessionStorage.setItem(MINUTES_EXPIRED_NOTICE_KEY, MINUTES_EXPIRED_MESSAGE);
         localStorage.setItem(
@@ -82,7 +89,6 @@ export function MinutesSessionGuard({
         );
       }
       setEnded(reason);
-      await fetch("/api/minutes/auth", { method: "DELETE" }).catch(() => undefined);
       router.refresh();
     },
     [router],
@@ -123,6 +129,7 @@ export function MinutesSessionGuard({
 
     const confirmServer = async () => {
       const response = await fetch("/api/minutes/auth");
+      if (response.status === 503) return "unavailable" as const;
       const data = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         expired?: boolean;
@@ -149,6 +156,10 @@ export function MinutesSessionGuard({
       }
       try {
         const serverLast = await confirmServer();
+        if (serverLast === "unavailable") {
+          if (!isIdleExpired(last, Date.now())) schedule(last);
+          return;
+        }
         if (serverLast !== null) {
           if (!applyServerActivity(serverLast)) await endSession("idle");
           return;
