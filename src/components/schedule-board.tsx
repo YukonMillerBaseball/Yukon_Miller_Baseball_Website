@@ -228,7 +228,36 @@ function PhaseHeader({
   return <div className={rowClass}>{title}</div>;
 }
 
-function DateStamp({ weekday, date }: { weekday: string; date: string }) {
+function meridiemForHour(hour: number) {
+  return hour >= 8 && hour <= 11 ? "AM" : "PM";
+}
+
+/** Display-only mobile time. Does not change the stored schedule string. */
+function mobileTimeLines(time: string | undefined) {
+  const raw = time?.trim();
+  if (!raw || /^tbd$/i.test(raw) || /^tba$/i.test(raw)) return ["TBA"];
+
+  return raw.split("/").map((part) => {
+    const slot = part.trim();
+    const clock = slot.match(/^(\d{1,2}):(\d{2})$/);
+    if (!clock) return slot.toUpperCase();
+    const hour = Number(clock[1]);
+    if (hour < 1 || hour > 12) return slot.toUpperCase();
+    return `${hour}:${clock[2]} ${meridiemForHour(hour)}`;
+  });
+}
+
+function DateStamp({
+  weekday,
+  date,
+  time,
+}: {
+  weekday: string;
+  date: string;
+  time?: string;
+}) {
+  const times = time === undefined ? [] : mobileTimeLines(time);
+
   return (
     <div className="min-w-0">
       <p className="text-[0.58rem] tracking-[0.18em] text-zinc-500 uppercase">
@@ -237,6 +266,15 @@ function DateStamp({ weekday, date }: { weekday: string; date: string }) {
       <p className="font-heading text-base leading-tight tracking-wide text-white uppercase sm:text-lg">
         {formatGameDate(date)}
       </p>
+      {times.length > 0 ? (
+        <p className="mt-1 text-[0.68rem] leading-tight font-normal tracking-wide text-zinc-400 normal-case sm:hidden">
+          {times.map((line, index) => (
+            <span key={`${line}-${index}`} className="block whitespace-nowrap">
+              {line}
+            </span>
+          ))}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -244,9 +282,11 @@ function DateStamp({ weekday, date }: { weekday: string; date: string }) {
 function GameDetail({
   game,
   className,
+  timeOnMobile = true,
 }: {
   game: Game;
   className?: string;
+  timeOnMobile?: boolean;
 }) {
   const mark = gameResult(game);
   const score = formatGameScore(game);
@@ -262,10 +302,21 @@ function GameDetail({
   }
 
   return (
-    <div className={cn("text-sm tracking-wide text-zinc-400 uppercase", className)}>
-      <p>{game.time ?? "TBA"}</p>
+    <div
+      className={cn(
+        "text-sm tracking-wide text-zinc-400 uppercase",
+        className,
+        !timeOnMobile && !game.venue && "max-sm:hidden",
+      )}
+    >
+      <p className={cn(!timeOnMobile && "max-sm:hidden")}>{game.time ?? "TBA"}</p>
       {game.venue ? (
-        <p className="mt-0.5 text-[0.7rem] tracking-[0.12em] text-zinc-500">
+        <p
+          className={cn(
+            "text-[0.7rem] tracking-[0.12em] text-zinc-500",
+            timeOnMobile ? "mt-0.5" : "mt-0.5 max-sm:mt-0",
+          )}
+        >
           {game.venue}
         </p>
       ) : null}
@@ -547,17 +598,22 @@ function TeamList({
                   <div
                     key={game.id}
                     className={cn(
-                      "grid grid-cols-[4.75rem_minmax(0,1fr)_2rem] items-center gap-3 border-b border-white/8 py-3.5 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:gap-4",
+                      "grid grid-cols-[4.75rem_minmax(0,1fr)_2rem] items-start gap-3 border-b border-white/8 py-3.5 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4",
                       index % 2 === 1 && "bg-white/[0.015]",
                     )}
                   >
-                    <DateStamp weekday={day.weekday} date={day.date} />
+                    <DateStamp
+                      weekday={day.weekday}
+                      date={day.date}
+                      time={game.time ?? ""}
+                    />
                     <div className="min-w-0 overflow-hidden sm:contents">
                       <p className="font-heading min-w-0 text-[1.35rem] leading-none tracking-normal uppercase sm:text-xl sm:tracking-wide">
                         <GameMatchup game={game} />
                       </p>
                       <GameDetail
                         game={game}
+                        timeOnMobile={false}
                         className="mt-1.5 sm:mt-0 sm:text-right"
                       />
                     </div>
