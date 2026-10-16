@@ -6,10 +6,12 @@ export function ArticleCardImage({
   image,
   variant = "card",
   className,
+  sizes,
 }: {
   image: ArticleImage;
   variant?: "card" | "banner";
   className?: string;
+  sizes?: string;
 }) {
   const chosen =
     variant === "banner" && image.banner
@@ -24,6 +26,7 @@ export function ArticleCardImage({
       alt={image.alt}
       width={chosen.width}
       height={chosen.height}
+      {...(sizes ? { sizes } : {})}
       className={cn("object-cover", className)}
       style={{ objectPosition: chosen.focus ?? image.focus ?? "center 22%" }}
     />

@@ -1,0 +1,19 @@
+---
+description: Optimize new website photographs before they are committed
+alwaysApply: true
+---
+
+# Website photography
+
+Before committing a new photographic image, optimize it and then validate it. Use the project scripts. Do not install another Git hook.
+
+1. Run `npm run images:optimize`. It calls `scripts/optimize-images.mts` and processes only newly added JPEG photographs.
+2. Run `npm run images:check`. Do not commit a photograph while that check reports it needs attention.
+3. Do not alter an existing image unless the user explicitly approves that file.
+4. Do not modify Yukon logos, sponsor logos, wordmarks, or other branding.
+5. Keep the existing filename, path, and every image reference.
+6. Do not convert PNG graphics, icons, or transparent assets.
+
+Supported folders are `public/images/news/`, `public/images/roster/`, and `public/images/facilities/`.
+
+The optimizer limits the longest side to 2,000 pixels, uses JPEG quality 80, keeps the aspect ratio, does not enlarge, applies EXIF orientation, and leaves a file unchanged when the result would not be smaller. `npm run images:optimize -- --files <path>` is the explicit request for a specific photograph. The default command does not process images that are already in Git.

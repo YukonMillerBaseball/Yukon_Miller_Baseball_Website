@@ -40,4 +40,24 @@ Edit the typed files in `src/lib/`:
 - `sponsors.ts` — 2026 partner names and tiers from the HRC sign sheet
 - `camps.ts` — camp sessions, payment, flyer, and the registration form URL. Set `activeCamp` to a `CampSeason` to publish it. Leave `activeCamp` as `null` to show the coming-soon message. Past seasons stay in `archivedCamps`.
 
-Drop images in `public/images/` and point the `photo` fields at them.
+Point `photo` fields at files in `public/images/`. Logos, sponsor art, and other branding stay as they are.
+
+## Photographic images
+
+New JPEG photographs in `public/images/news/`, `public/images/roster/`, and `public/images/facilities/` are optimized before they are committed. The optimizer limits the longest side to 2,000 pixels, saves JPEG at quality 80, keeps the aspect ratio, does not enlarge, applies the EXIF orientation, and leaves the file untouched when the result would not be smaller. Filenames and paths stay the same.
+
+Logos, sponsor art, PNG graphics, icons, and transparent assets are excluded, including a JPEG whose filename contains `logo`, `wordmark`, `brand`, `swoosh`, `sponsor`, or `icon`. Photographs already in Git are not processed unless a path is passed explicitly.
+
+```bash
+npm run images:optimize
+npm run images:check
+```
+
+`images:check` only reports newly added photographs. It flags a longest side over 2,000 pixels or a file over 1 MB, and it does not edit files. To optimize or check specific files:
+
+```bash
+npm run images:optimize -- --files public/images/news/example.jpg
+npm run images:check -- --files public/images/news/example.jpg
+```
+
+Cursor is instructed to run both commands before committing a new photograph. The repository already uses Cursor's Git hooks, so this check is not installed as another hook.
