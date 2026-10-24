@@ -27,6 +27,7 @@ export type Sponsor = {
 const sponsorLogos: Record<string, SponsorLogo> = {
   "amada-senior-care": { src: "/images/sponsors/logos/amada-senior-care.png", width: 900, height: 178 },
   "army-national-guard": { src: "/images/sponsors/logos/army-national-guard.png", width: 217, height: 232 },
+  "asher-oilfield-services": { src: "/images/sponsors/logos/asher-oilfield-services.png", width: 900, height: 340 },
   "bad-brads": { src: "/images/sponsors/logos/bad-brads.png", width: 181, height: 113 },
   "bancfirst": { src: "/images/sponsors/logos/bancfirst.png", width: 900, height: 185 },
   "bell-carpet": { src: "/images/sponsors/logos/bell-carpet.png", width: 224, height: 224 },
@@ -397,6 +398,13 @@ const sponsorList: Sponsor[] = [
     tier: "home-run",
     placement: "Home Run Club · outfield banner",
     href: "https://goguardok.com",
+  },
+  {
+    id: "asher-oilfield-services",
+    name: "Asher Oilfield Services",
+    mark: "AO",
+    tier: "home-run",
+    placement: "Home Run Club · outfield banner",
   },
   {
     id: "harris-ellis",
