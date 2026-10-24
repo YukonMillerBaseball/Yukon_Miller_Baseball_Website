@@ -405,6 +405,7 @@ const sponsorList: Sponsor[] = [
     mark: "AO",
     tier: "home-run",
     placement: "Home Run Club · outfield banner",
+    href: "https://asheroilfield.com",
   },
   {
     id: "harris-ellis",
