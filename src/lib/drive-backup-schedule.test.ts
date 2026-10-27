@@ -312,7 +312,7 @@ describe("backup schedule authorization", () => {
     assert.equal(schedule.includes("BLOB_READ_WRITE_TOKEN"), false);
     assert.equal(schedule.includes("CRON_SECRET"), true);
     assert.equal(schedule.includes("BACKUP_SCHEDULE_ENABLED"), true);
-    assert.deepEqual(crons.crons.map((cron) => cron.schedule), ["0 8 * * 0"]);
+    assert.deepEqual(crons.crons.map((cron) => cron.schedule), ["0 8 * * *"]);
     assert.equal(crons.crons.every((cron) => cron.path === "/api/backup/schedule"), true);
     assert.equal(manual.includes("acquireBackupLease"), true);
     assert.equal(manual.includes("releaseBackupLease"), true);

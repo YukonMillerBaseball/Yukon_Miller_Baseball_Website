@@ -25,9 +25,9 @@ import {
 } from "@/lib/drive-backup-lock";
 
 /**
- * Weekly automation for the existing backup engine.
- * One Vercel cron runs at 08:00 UTC every Sunday. Hobby may start it later
- * in that window; the route does not require a Chicago hour. Manual and
+ * Daily automation for the existing backup engine.
+ * One Vercel cron runs at 08:00 UTC every day. Hobby may start it later
+ * in that hour; the route does not require a Chicago hour. Manual and
  * scheduled runs share one Blob lease. Retention is calculated and never deletes.
  */
 
