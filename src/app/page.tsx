@@ -1,7 +1,6 @@
 import { ArticleCardImage } from "@/components/article-card-image";
 import { BrandLogo } from "@/components/brand-logo";
 import { CommitTicker } from "@/components/commit-ticker";
-import { TeamStoreBanner } from "@/components/team-store-banner";
 import { buttonVariants } from "@/components/ui/button";
 import { latestArticles } from "@/lib/news";
 import { homeOgImage, ogImageSize } from "@/lib/og-cover";
@@ -85,8 +84,6 @@ export default function HomePage() {
           <CommitTicker />
         </div>
       </section>
-
-      <TeamStoreBanner />
 
       <section className="border-t border-white/8 bg-zinc-950">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
