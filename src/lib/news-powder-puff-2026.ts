@@ -1,13 +1,16 @@
 import type { ArticleBlock } from "@/lib/news-blocks";
 
+const opening =
+  "The Juniors are back-to-back Yukon Powder Puff champions after surviving a thrilling one-run semifinal against the Sophomores and defeating the Seniors in the championship game.";
+
 const semifinal =
-  "Yukon Powder Puff 2026 was full of action, and the semifinal came down to the wire. The Sophomores and the Juniors traded chances all night. When the game ended, the Juniors won by a single run and advanced to the championship against the Seniors.";
+  "The 2026 Yukon Powder Puff delivered another exciting night of competition. The Juniors faced a tough challenge from the Sophomores in a closely contested semifinal, ultimately pulling out a one-run victory to advance to the championship.";
 
 const championship =
-  "The Juniors then beat the Seniors in the championship. They are champions for the second year in a row.";
+  "With the title on the line, the Juniors defeated the Seniors to secure their second consecutive Powder Puff championship.";
 
 const thanks =
-  "Congratulations to this year’s Home Run Queen and to our MVPs. Thank you to every participant for making it a night to remember, and to everyone who helped make the night a success.";
+  "Congratulations to this year’s Home Run Queen and MVPs! A special thank-you to all the players, coaches, volunteers, and supporters who helped make this year’s event another memorable night for Yukon Baseball.";
 
 const gallery: ArticleBlock = {
   type: "gallery",
@@ -71,11 +74,10 @@ const gallery: ArticleBlock = {
 
 export const powderPuff2026Story = {
   slug: "yukon-powder-puff-2026",
-  title: "Juniors Repeat as Yukon Powder Puff Champions",
+  title: "A Night to Remember: Juniors Repeat as Powder Puff Champions",
   date: "October 29, 2026",
   category: "News" as const,
-  excerpt:
-    "The Juniors are Powder Puff champions again. They won a one-run semifinal against the Sophomores, then beat the Seniors for back-to-back titles.",
+  excerpt: opening,
   image: {
     src: "/images/news/yukon-powder-puff-2026.jpg",
     alt: "Yukon Powder Puff 2026 participants gathered on the field at home plate in front of the Yukon High School scoreboard",
@@ -83,10 +85,11 @@ export const powderPuff2026Story = {
     height: 1333,
     focus: "center 46%",
   },
-  body: [semifinal, championship, thanks],
+  body: [opening, semifinal, championship, thanks],
   blocks: [
     { type: "p", text: semifinal },
     { type: "p", text: championship },
+    { type: "p", text: thanks },
     gallery,
     {
       type: "image",
@@ -96,6 +99,5 @@ export const powderPuff2026Story = {
       height: 1800,
       size: "card",
     },
-    { type: "p", text: thanks },
   ] satisfies ArticleBlock[],
 };
