@@ -82,8 +82,8 @@ export const powderPuff2026Story = {
     src: "/images/news/yukon-powder-puff-2026.jpg",
     alt: "Yukon Powder Puff 2026 participants gathered on the field at home plate in front of the Yukon High School scoreboard",
     width: 2000,
-    height: 1333,
-    focus: "center 46%",
+    height: 670,
+    focus: "center 48%",
   },
   body: [opening, semifinal, championship, thanks],
   blocks: [
