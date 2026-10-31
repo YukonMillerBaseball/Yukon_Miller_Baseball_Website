@@ -31,12 +31,6 @@ const gallery: ArticleBlock = {
       height: 900,
     },
     {
-      src: "/images/news/powder-puff-2026-high-five.jpg",
-      alt: "Powder Puff players high-five along the baseline during the night game",
-      width: 1350,
-      height: 1800,
-    },
-    {
       src: "/images/news/powder-puff-2026-pink-bats.jpg",
       alt: "A Powder Puff team in black and white poses with pink bats in front of the Yukon High School scoreboard",
       width: 2000,
@@ -94,6 +88,14 @@ export const powderPuff2026Story = {
     { type: "p", text: semifinal },
     { type: "p", text: championship },
     gallery,
+    {
+      type: "image",
+      src: "/images/news/powder-puff-2026-high-five.jpg",
+      alt: "Powder Puff players high-five along the baseline during the night game",
+      width: 1350,
+      height: 1800,
+      size: "card",
+    },
     { type: "p", text: thanks },
   ] satisfies ArticleBlock[],
 };
