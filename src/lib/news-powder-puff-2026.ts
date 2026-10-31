@@ -69,6 +69,12 @@ const gallery: ArticleBlock = {
       width: 2000,
       height: 1333,
     },
+    {
+      src: "/images/news/powder-puff-2026-gift-pink.jpg",
+      alt: "A Powder Puff participant in a pink shirt holds a gift basket and a pink blanket beside an adult on the field",
+      width: 2000,
+      height: 1333,
+    },
   ],
 };
 
@@ -91,13 +97,5 @@ export const powderPuff2026Story = {
     { type: "p", text: championship },
     { type: "p", text: thanks },
     gallery,
-    {
-      type: "image",
-      src: "/images/news/powder-puff-2026-high-five.jpg",
-      alt: "Powder Puff players high-five along the baseline during the night game",
-      width: 1350,
-      height: 1800,
-      size: "card",
-    },
   ] satisfies ArticleBlock[],
 };
