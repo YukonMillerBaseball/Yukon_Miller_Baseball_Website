@@ -24,6 +24,7 @@ const articleOgSlugs = new Set([
   "yukon-baseball-fall-camp",
   "kamden-hotz-kansas-wesleyan",
   "yukon-powder-puff-2026",
+  "yukon-signing-day-2026",
 ]);
 
 const articleOgFiles: Record<string, string> = {
