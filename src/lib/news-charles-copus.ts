@@ -18,8 +18,8 @@ export const charlesCopusStory = {
     banner: {
       src: "/images/news/charles-copus-noc-tonkawa-banner.jpg",
       width: 1600,
-      height: 680,
-      focus: "center 32%",
+      height: 1006,
+      focus: "center",
     },
     card: {
       src: "/images/news/charles-copus-noc-tonkawa-card.jpg",
