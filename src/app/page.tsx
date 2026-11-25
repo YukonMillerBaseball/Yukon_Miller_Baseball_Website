@@ -37,6 +37,10 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   const [featured, ...moreNews] = latestArticles(3);
+  const featuredFrame = featured?.image?.banner ?? featured?.image;
+  // Usual banners are 1600×680. A taller frame is shown whole so the wordmark stays visible.
+  const featuredShowsFullFrame =
+    featuredFrame != null && featuredFrame.height / featuredFrame.width > 0.48;
 
   return (
     <div>
@@ -115,7 +119,11 @@ export default function HomePage() {
                     image={featured.image}
                     variant="banner"
                     sizes="(max-width: 1023px) calc(100vw - 2rem), 680px"
-                    className="h-56 w-full object-cover sm:h-72"
+                    className={
+                      featuredShowsFullFrame
+                        ? "h-auto w-full"
+                        : "h-56 w-full object-cover sm:h-72"
+                    }
                   />
                 ) : null}
                 <div className="p-8 sm:p-10">

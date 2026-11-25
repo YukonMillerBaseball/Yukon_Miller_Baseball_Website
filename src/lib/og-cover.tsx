@@ -23,6 +23,7 @@ const articleOgSlugs = new Set([
   "czech-festival-parade-2026",
   "yukon-baseball-fall-camp",
   "kamden-hotz-kansas-wesleyan",
+  "charles-copus-noc-tonkawa",
   "yukon-powder-puff-2026",
   "yukon-signing-day-2026",
 ]);

@@ -119,4 +119,23 @@ export const commits: Commit[] = [
     },
     newsSlug: "kamden-hotz-kansas-wesleyan",
   },
+  {
+    id: "charles-copus",
+    pick: "06",
+    player: "Charles Copus",
+    school: "Northern Oklahoma College–Tonkawa",
+    mascot: "Mavericks",
+    division: "NJCAA Division II",
+    conference: "NJCAA Region 2",
+    city: "Tonkawa, Oklahoma",
+    stadium: "Maverick Field",
+    colors: { primary: "#C8102E", secondary: "#F4F4F4" },
+    logo: {
+      src: "/images/schools/noc-tonkawa-mavericks.png",
+      width: 1600,
+      height: 297,
+      alt: "Northern Oklahoma College Mavericks logo",
+    },
+    newsSlug: "charles-copus-noc-tonkawa",
+  },
 ];
