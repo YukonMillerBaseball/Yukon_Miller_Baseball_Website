@@ -10,6 +10,7 @@ import { schedule2027Story } from "@/lib/news-2027-schedule";
 import { czechFestivalStory } from "@/lib/news-czech-festival";
 import { fallCampStory } from "@/lib/news-fall-camp";
 import { gunnerFletcherStory } from "@/lib/news-gunner-fletcher";
+import { cadeParentStory } from "@/lib/news-cade-parent";
 import { charlesCopusStory } from "@/lib/news-charles-copus";
 import { kamdenHotzStory } from "@/lib/news-kamden-hotz";
 import { powderPuff2026Story } from "@/lib/news-powder-puff-2026";
@@ -47,6 +48,7 @@ export type Article = {
 };
 
 export const articles: Article[] = [
+  cadeParentStory,
   charlesCopusStory,
   signingDay2026Story,
   powderPuff2026Story,

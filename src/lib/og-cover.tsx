@@ -24,6 +24,7 @@ const articleOgSlugs = new Set([
   "yukon-baseball-fall-camp",
   "kamden-hotz-kansas-wesleyan",
   "charles-copus-noc-tonkawa",
+  "cade-parent-arizona-diamondbacks-area-scout",
   "yukon-powder-puff-2026",
   "yukon-signing-day-2026",
 ]);
